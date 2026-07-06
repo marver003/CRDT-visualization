@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package replication;
+
+option go_package = "/replication";
+
+import "google/protobuf/empty.proto";
+
+message PushStateRequest {
+  // Identifies the CRDT instance on the receiving node
+  string crdt_id = 1;
+
+  // CRDT type ("gcounter", "gset", "lwwset", ...)
+  string crdt_type = 2;
+
+  // Serialized CRDT state
+  bytes state = 3;
+}
+
+// message PushStateResponse {} maybe in future implementations...
+
+service ReplicationService {
+  rpc PushState(PushStateRequest) returns (google.protobuf.Empty);
+}
