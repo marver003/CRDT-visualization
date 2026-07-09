@@ -4,14 +4,14 @@ import (
 	"log"
 	"net/http"
 
-	Store "github.com/marver003/crdt/internal/store"
-	HttpTransport "github.com/marver003/crdt/internal/transport/http"
+	"github.com/marver003/crdt/internal/store"
+	nodehttp "github.com/marver003/crdt/internal/transport/http/node"
 )
 
 func main() {
-	store := Store.New()
-	handler := HttpTransport.NewHandler(store)
-	router := HttpTransport.NewRouter(handler)
+	store := store.New()
+	handler := nodehttp.NewHandler(store)
+	router := nodehttp.NewRouter(handler)
 
 	addr := ":8080"
 	log.Printf("GCounter API listening on %s", addr)

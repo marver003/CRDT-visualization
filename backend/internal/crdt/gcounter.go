@@ -1,8 +1,6 @@
 package crdt
 
 import (
-	"maps"
-
 	"github.com/marver003/crdt/internal/types"
 )
 
@@ -13,6 +11,7 @@ type GCounter struct {
 
 type GCounterState struct {
 	Counts map[types.ReplicaID]uint64
+	Value  uint64
 }
 
 func NewGCounter(id types.ReplicaID) *GCounter {
@@ -61,8 +60,14 @@ func (g *GCounter) Clone() *GCounter {
 
 func (g *GCounter) State() GCounterState {
 	cp := make(map[types.ReplicaID]uint64, len(g.counts))
-	maps.Copy(cp, g.counts)
-	return GCounterState{Counts: cp}
+
+	var total uint64 = 0
+	for k, v := range g.counts {
+		cp[k] = v
+		total += v
+	}
+
+	return GCounterState{Counts: cp, Value: total}
 }
 
 func (g *GCounter) ApplyState(state GCounterState) error {

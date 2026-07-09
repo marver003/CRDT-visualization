@@ -28,7 +28,7 @@ func (s *Store) Create(id types.ReplicaID) error {
 	defer s.mu.Unlock()
 
 	if _, exists := s.replicas[id]; exists {
-		return fmt.Errorf("replica %q already exists", id)
+		return fmt.Errorf("replica %d already exists", id)
 	}
 
 	s.replicas[id] = crdt.NewGCounter(id)
@@ -43,7 +43,7 @@ func (s *Store) Get(id types.ReplicaID) (*crdt.GCounter, error) {
 
 	r, ok := s.replicas[id]
 	if !ok {
-		return nil, fmt.Errorf("replica %q not found", id)
+		return nil, fmt.Errorf("replica %d not found", id)
 	}
 
 	return r, nil
@@ -56,7 +56,7 @@ func (s *Store) Delete(id types.ReplicaID) error {
 	defer s.mu.Unlock()
 
 	if _, ok := s.replicas[id]; !ok {
-		return fmt.Errorf("replica %q not found", id)
+		return fmt.Errorf("replica %d not found", id)
 	}
 
 	delete(s.replicas, id)
@@ -64,13 +64,13 @@ func (s *Store) Delete(id types.ReplicaID) error {
 }
 
 // ListSnapshot returns a snapshot of every replica's state, keyed by replica ID string.
-func (s *Store) ListSnapshot() map[string]crdt.GCounterState {
+func (s *Store) ListSnapshot() map[types.ReplicaID]crdt.GCounterState {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	out := make(map[string]crdt.GCounterState, len(s.replicas))
+	out := make(map[types.ReplicaID]crdt.GCounterState, len(s.replicas))
 	for id, gc := range s.replicas {
-		out[string(id)] = gc.State()
+		out[id] = gc.State()
 	}
 
 	return out
@@ -83,7 +83,7 @@ func (s *Store) WithLock(id types.ReplicaID, fn func(*crdt.GCounter) error) erro
 
 	r, ok := s.replicas[id]
 	if !ok {
-		return fmt.Errorf("replica %q not found", id)
+		return fmt.Errorf("replica %d not found", id)
 	}
 
 	return fn(r)

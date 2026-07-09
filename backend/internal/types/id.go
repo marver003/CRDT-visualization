@@ -1,3 +1,3 @@
 package types
 
-type ReplicaID string
+type ReplicaID uint64
