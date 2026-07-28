@@ -22,15 +22,9 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 func registerRoutes(mux *http.ServeMux, h *Handler) {
-	mux.HandleFunc("POST /replicas", h.CreateReplica) // Create a new replica
-	mux.HandleFunc("GET /replicas", h.ListReplicas)   // list all replicas
 
-	mux.HandleFunc("GET /replicas/{id}", h.GetReplica)       // get replica state
-	mux.HandleFunc("DELETE /replicas/{id}", h.DeleteReplica) // delete a replica
-
-	mux.HandleFunc("POST /replicas/{id}/increment", h.IncrementReplica) // increment
-	mux.HandleFunc("POST /replicas/{id}/add", h.AddToReplica)           // add N
-	mux.HandleFunc("POST /replicas/{id}/merge", h.MergeReplica)         // merge state
+	mux.HandleFunc("GET /replicaState", h.GetReplicaState)
+	mux.HandleFunc("POST /increment", h.IncrementReplica)
 }
 
 // NewRouter builds and returns the HTTP mux for the GCounter API.
