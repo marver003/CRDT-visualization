@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/marver003/crdt/internal/node"
@@ -21,6 +22,7 @@ type replicaInfo struct {
 
 // NewHandler returns a Handler backed by the given Node.
 func NewHandler(n *node.Node) *Handler {
+	log.Println("Creating new handler")
 	return &Handler{Node: n}
 }
 

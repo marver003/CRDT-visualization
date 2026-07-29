@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"log"
 	"net/http"
 )
 
@@ -29,6 +30,7 @@ func registerRoutes(mux *http.ServeMux, h *Handler) {
 
 // NewRouter builds and returns the HTTP mux for the GCounter API.
 func NewRouter(h *Handler) http.Handler {
+	log.Println("Creating new router")
 	mux := http.NewServeMux()
 
 	registerRoutes(mux, h)

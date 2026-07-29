@@ -24,7 +24,7 @@ func parseNeighborString(neighborString string) []types.Peer {
 
 	peer2 := types.Peer{
 		ID:       2,
-		GRPCAddr: neighborStringArray[0],
+		GRPCAddr: neighborStringArray[1],
 	}
 
 	return []types.Peer{peer1, peer2}
@@ -49,6 +49,7 @@ func main() {
 	log.Printf("GCounter API listening on %d", *ptrHttpPort)
 
 	go grpc.GossipServer(grpcAddr, node.Counter)
+	go node.GossipService.Gossip()
 
 	if err := http.ListenAndServe(httpAddr, router); err != nil {
 		log.Fatalf("server error: %v", err)
