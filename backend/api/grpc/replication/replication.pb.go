@@ -25,7 +25,7 @@ const (
 type PushStateRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Identifies the CRDT instance on the receiving node
-	CrdtId int64 `protobuf:"varint,1,opt,name=crdt_id,json=crdtId,proto3" json:"crdt_id,omitempty"`
+	CrdtId uint64 `protobuf:"varint,1,opt,name=crdt_id,json=crdtId,proto3" json:"crdt_id,omitempty"`
 	// CRDT type ("gcounter", "gset", "lwwset", ...)
 	CrdtType string `protobuf:"bytes,2,opt,name=crdt_type,json=crdtType,proto3" json:"crdt_type,omitempty"`
 	// Serialized CRDT state
@@ -64,7 +64,7 @@ func (*PushStateRequest) Descriptor() ([]byte, []int) {
 	return file_internal_transport_grpc_proto_replication_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *PushStateRequest) GetCrdtId() int64 {
+func (x *PushStateRequest) GetCrdtId() uint64 {
 	if x != nil {
 		return x.CrdtId
 	}
@@ -91,7 +91,7 @@ const file_internal_transport_grpc_proto_replication_proto_rawDesc = "" +
 	"\n" +
 	"/internal/transport/grpc/proto/replication.proto\x12\vreplication\x1a\x1bgoogle/protobuf/empty.proto\"^\n" +
 	"\x10PushStateRequest\x12\x17\n" +
-	"\acrdt_id\x18\x01 \x01(\x03R\x06crdtId\x12\x1b\n" +
+	"\acrdt_id\x18\x01 \x01(\x04R\x06crdtId\x12\x1b\n" +
 	"\tcrdt_type\x18\x02 \x01(\tR\bcrdtType\x12\x14\n" +
 	"\x05state\x18\x03 \x01(\fR\x05state2X\n" +
 	"\x12ReplicationService\x12B\n" +

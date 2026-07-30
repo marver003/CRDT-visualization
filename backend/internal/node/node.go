@@ -24,7 +24,7 @@ func Create(id types.ReplicaID, peers []types.Peer) *Node {
 		ID:            id,
 		Counter:       counter,
 		Peers:         peers,
-		GossipService: grpc.GossipClient(peers, counter, 5*time.Second),
+		GossipService: grpc.GossipClient(id, peers, counter, 5*time.Second),
 	}
 }
 

@@ -13,14 +13,16 @@ import (
 )
 
 type GossipService struct {
+	id       types.ReplicaID
 	peers    []types.Peer
 	counter  *crdt.GCounter
 	interval time.Duration
 }
 
-func GossipClient(peers []types.Peer, counter *crdt.GCounter, interval time.Duration) *GossipService {
+func GossipClient(id types.ReplicaID, peers []types.Peer, counter *crdt.GCounter, interval time.Duration) *GossipService {
 	log.Print("Create gossip service")
 	return &GossipService{
+		id:       types.ReplicaID(id),
 		peers:    peers,
 		counter:  counter,
 		interval: interval,
@@ -56,7 +58,7 @@ func (g *GossipService) Gossip() {
 				panic(err)
 			}
 			request := replication.PushStateRequest{
-				CrdtId:   0,
+				CrdtId:   uint64(g.id),
 				CrdtType: "GCounter",
 				State:    stateBytes,
 			}

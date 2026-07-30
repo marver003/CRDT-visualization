@@ -17,21 +17,22 @@ func parseNeighborString(neighborString string) []types.Peer {
 
 	neighborStringArray := strings.Split(neighborString, ";")
 
-	peer1 := types.Peer{
-		ID:       1,
-		GRPCAddr: neighborStringArray[0],
+	var neighbors []types.Peer
+
+	for i, neighborString := range neighborStringArray {
+		peer := types.Peer{
+			ID:       types.ReplicaID(i),
+			GRPCAddr: neighborString,
+		}
+		neighbors = append(neighbors, peer)
 	}
 
-	peer2 := types.Peer{
-		ID:       2,
-		GRPCAddr: neighborStringArray[1],
-	}
-
-	return []types.Peer{peer1, peer2}
+	return neighbors
 }
 
 func main() {
 
+	ptrNodeId := flag.Uint64("id", 1, "node id (MUST BE UNIQUE)")
 	ptrHttpPort := flag.Int("phttp", 8080, "http server port")
 	ptrGrpcPort := flag.Int("pgrpc", 9080, "grpc server port")
 	ptrNeighbors := flag.String("n", "", "neighbors")
@@ -42,7 +43,7 @@ func main() {
 	grpcAddr := fmt.Sprintf(":%d", *ptrGrpcPort)
 	peers := parseNeighborString(*ptrNeighbors)
 
-	node := node.Create(0, peers)
+	node := node.Create(types.ReplicaID(*ptrNodeId), peers)
 	handler := nodehttp.NewHandler(node)
 	router := nodehttp.NewRouter(handler)
 
