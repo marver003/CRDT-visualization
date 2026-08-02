@@ -20,7 +20,6 @@ type GossipService struct {
 }
 
 func GossipClient(id types.ReplicaID, peers []types.Peer, counter *crdt.GCounter, interval time.Duration) *GossipService {
-	log.Print("Create gossip service")
 	return &GossipService{
 		id:       types.ReplicaID(id),
 		peers:    peers,
@@ -30,7 +29,7 @@ func GossipClient(id types.ReplicaID, peers []types.Peer, counter *crdt.GCounter
 }
 
 func (g *GossipService) Gossip() {
-	log.Print("Start gossiping...")
+	log.Println("Gossip service started.")
 	var connections []*grpc.ClientConn
 	var grpcClients []replication.ReplicationServiceClient
 	for _, peer := range g.peers {
@@ -38,7 +37,7 @@ func (g *GossipService) Gossip() {
 		conn, err := grpc.NewClient(peer.GRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 		if err != nil {
-			panic(err)
+			log.Printf("Connection to gRPC server failed: %v\n", err.Error())
 		}
 
 		connections = append(connections, conn)
@@ -55,7 +54,7 @@ func (g *GossipService) Gossip() {
 			log.Printf("Gossip to %s\n", g.peers[index].GRPCAddr)
 			stateBytes, err := g.counter.Marshal()
 			if err != nil {
-				panic(err)
+				log.Fatalf("Counter Marshal failed: %v", err.Error())
 			}
 			request := replication.PushStateRequest{
 				CrdtId:   uint64(g.id),
@@ -63,7 +62,7 @@ func (g *GossipService) Gossip() {
 				State:    stateBytes,
 			}
 			if _, err := client.PushState(contextRepl, &request); err != nil {
-				log.Fatalf("PushState failed: %v", err.Error())
+				log.Printf("PushState failed: %v\n", err.Error())
 			}
 		}
 	}

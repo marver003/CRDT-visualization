@@ -1,4 +1,4 @@
-package internal
+package simulator
 
 import (
 	"log"
@@ -24,13 +24,18 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 func registerRoutes(mux *http.ServeMux, h *Handler) {
 
-	mux.HandleFunc("GET /replicaState", h.GetReplicaState)
-	mux.HandleFunc("POST /increment", h.IncrementReplica)
+	mux.HandleFunc("POST /createNode", h.CreateNode)               // body should contain replicaId
+	mux.HandleFunc("DELETE /removeNode/{replicaId}", h.RemoveNode) // No body
+	mux.HandleFunc("GET /state", h.GetState)                       // state for everything
+	mux.HandleFunc("POST /increment", h.IncrementNode)             // body should contain replicaId
+	mux.HandleFunc("POST /merge", h.MergeNodes)                    // Body should  contain sourceReplicaId and targetReplicaId
+	// TODO some additional endpoints to come...
+
 }
 
-// NewRouter builds and returns the HTTP mux for the GCounter API.
+// NewRouter builds and returns the HTTP mux for the simulator API.
 func NewRouter(h *Handler) http.Handler {
-	log.Println("Creating new router")
+	log.Println("Creating new SIMULATOR router")
 	mux := http.NewServeMux()
 
 	registerRoutes(mux, h)

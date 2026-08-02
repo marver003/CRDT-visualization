@@ -1,4 +1,4 @@
-package internal
+package live
 
 import (
 	"log"

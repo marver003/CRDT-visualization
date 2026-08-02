@@ -9,7 +9,7 @@ import (
 
 	"github.com/marver003/crdt/internal/node"
 	"github.com/marver003/crdt/internal/transport/grpc"
-	nodehttp "github.com/marver003/crdt/internal/transport/http/node"
+	nodehttp "github.com/marver003/crdt/internal/transport/http/live"
 	"github.com/marver003/crdt/internal/types"
 )
 

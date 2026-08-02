@@ -28,6 +28,15 @@ func Create(id types.ReplicaID, peers []types.Peer) *Node {
 	}
 }
 
+func CreateSimNode(id types.ReplicaID) *Node {
+	log.Println("Creating new SIM node")
+	counter := crdt.NewGCounter(id)
+	return &Node{
+		ID: id,
+		Counter: counter,
+	}
+}
+
 // ListSnapshot returns a snapshot of replica's state
 func (n *Node) ListSnapshot() crdt.GCounterSnapshot {
 	return n.Counter.GetSnapshot()

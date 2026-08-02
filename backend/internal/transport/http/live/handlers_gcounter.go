@@ -1,11 +1,11 @@
-package internal
+package live
 
 import (
 	"log"
 	"net/http"
 
 	"github.com/marver003/crdt/internal/node"
-	httptransport "github.com/marver003/crdt/internal/transport/http"
+	"github.com/marver003/crdt/internal/transport/http/helper"
 	"github.com/marver003/crdt/internal/types"
 )
 
@@ -36,7 +36,7 @@ func (h *Handler) GetReplicaState(w http.ResponseWriter, r *http.Request) {
 		Counts: snapshot.Counts,
 	}
 
-	httptransport.WriteJSON(w, http.StatusOK, replInfo)
+	helper.WriteJSON(w, http.StatusOK, replInfo)
 }
 
 // IncrementReplica handles POST /increment
@@ -50,5 +50,5 @@ func (h *Handler) IncrementReplica(w http.ResponseWriter, r *http.Request) {
 		Counts: snapshot.Counts,
 	}
 
-	httptransport.WriteJSON(w, http.StatusOK, replInfo)
+	helper.WriteJSON(w, http.StatusOK, replInfo)
 }
