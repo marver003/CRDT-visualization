@@ -3,6 +3,7 @@ package simulator
 import (
 	"fmt"
 
+	"github.com/marver003/crdt/internal/crdt"
 	"github.com/marver003/crdt/internal/node"
 	"github.com/marver003/crdt/internal/types"
 )
@@ -44,4 +45,14 @@ func (s *Store) GetState() map[types.ReplicaID]map[types.ReplicaID]uint64 {
 	}
 
 	return state
+}
+
+func (s *Store) IncrementNodeCounter(id types.ReplicaID) (crdt.GCounterSnapshot, error) {
+	if _, exists := s.nodes[id]; !exists {
+		return crdt.GCounterSnapshot{}, fmt.Errorf("node %d does not exist", id)
+	}
+
+	s.nodes[id].Counter.Increment()
+
+	return s.nodes[id].Counter.GetSnapshot(), nil
 }

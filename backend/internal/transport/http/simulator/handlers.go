@@ -74,10 +74,32 @@ func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
 	helper.WriteJSON(w, http.StatusOK, &respGetState{State: state})
 }
 
+type reqIncrementNode struct {
+	ID types.ReplicaID `json:"id"`
+}
+
+type respIncrementNode struct {
+	Counts map[types.ReplicaID]uint64
+	Value  uint64
+}
+
 func (h *Handler) IncrementNode(w http.ResponseWriter, r *http.Request) {
-	helper.WriteError(w, http.StatusNotImplemented, "Not yet implemented.")
+	var req reqIncrementNode
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+
+	if err != nil {
+		helper.WriteError(w, http.StatusBadRequest, `Request body must be JSON with "id" field`)
+		return
+	}
+
+	snapshot, err := h.Store.IncrementNodeCounter(req.ID)
+
+	helper.WriteJSON(w, http.StatusOK, &respIncrementNode{Counts: snapshot.Counts, Value: snapshot.Value})
 }
 
 func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
 	helper.WriteError(w, http.StatusNotImplemented, "Not yet implemented.")
+
+	// TODO implement MergeNodes
 }

@@ -29,7 +29,7 @@ func registerRoutes(mux *http.ServeMux, h *Handler) {
 	mux.HandleFunc("GET /state", h.GetState)                       // state for everything
 	mux.HandleFunc("POST /increment", h.IncrementNode)             // body should contain replicaId
 	mux.HandleFunc("POST /merge", h.MergeNodes)                    // Body should  contain sourceReplicaId and targetReplicaId
-	// TODO some additional endpoints to come...
+	// some additional endpoints to come...
 
 }
 
