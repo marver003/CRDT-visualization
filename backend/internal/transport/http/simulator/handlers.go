@@ -49,7 +49,7 @@ func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RemoveNode(w http.ResponseWriter, r *http.Request) {
-	id, err := helper.ParseReplicaId(r.PathValue("id"))
+	id, err := helper.ParseReplicaId(r.PathValue("replicaId"))
 
 	if err != nil {
 		helper.WriteError(w, http.StatusBadRequest, err.Error())
