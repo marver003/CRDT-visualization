@@ -56,3 +56,19 @@ func (s *Store) IncrementNodeCounter(id types.ReplicaID) (crdt.GCounterSnapshot,
 
 	return s.nodes[id].Counter.GetSnapshot(), nil
 }
+
+func (s *Store) MergeNodeStates(sourceId, targetId types.ReplicaID) (crdt.GCounterSnapshot, error) {
+	if _, exists := s.nodes[sourceId]; !exists {
+		return crdt.GCounterSnapshot{}, fmt.Errorf("source node %d does not exist", sourceId)
+	}
+
+	if _, exists := s.nodes[targetId]; !exists {
+		return crdt.GCounterSnapshot{}, fmt.Errorf("target node %d does not exist", targetId)
+	}
+
+	SourceCounterSnapshot := s.nodes[sourceId].Counter.GetSnapshot()
+
+	s.nodes[targetId].Counter.Merge(&SourceCounterSnapshot)
+
+	return s.nodes[targetId].Counter.GetSnapshot(), nil
+}

@@ -95,11 +95,40 @@ func (h *Handler) IncrementNode(w http.ResponseWriter, r *http.Request) {
 
 	snapshot, err := h.Store.IncrementNodeCounter(req.ID)
 
+	if err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	helper.WriteJSON(w, http.StatusOK, &respIncrementNode{Counts: snapshot.Counts, Value: snapshot.Value})
 }
 
-func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
-	helper.WriteError(w, http.StatusNotImplemented, "Not yet implemented.")
+type reqMergeNodes struct {
+	SourceId types.ReplicaID `json:"source-id"`
+	TargetId types.ReplicaID `json:"target-id"`
+}
 
-	// TODO implement MergeNodes
+type respMergeNodes struct {
+	Counts map[types.ReplicaID]uint64
+	Value  uint64
+}
+
+func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
+	var req reqMergeNodes
+
+	err := json.NewDecoder(r.Body).Decode(&req)
+
+	if err != nil {
+		helper.WriteError(w, http.StatusBadRequest, `Request body must be JSON with "source-id" and "target-id fields`)
+		return
+	}
+
+	snapshot, err := h.Store.MergeNodeStates(req.SourceId, req.TargetId)
+
+	if err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	helper.WriteJSON(w, http.StatusOK, &respMergeNodes{Counts: snapshot.Counts, Value: snapshot.Value})
 }
