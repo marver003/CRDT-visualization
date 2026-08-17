@@ -15,6 +15,10 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 	json.NewEncoder(w).Encode(v)
 }
 
+func WriteOkNoContent(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // WriteError writes a JSON error envelope with the given HTTP status code.
 func WriteError(w http.ResponseWriter, status int, msg string) {
 	WriteJSON(w, status, map[string]string{"error": msg})
