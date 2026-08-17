@@ -1,33 +1,25 @@
-package simulator
+package simhttp
 
 import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/marver003/crdt/internal/simulator"
 	"github.com/marver003/crdt/internal/transport/http/helper"
 	"github.com/marver003/crdt/internal/types"
 )
 
 // Handler holds shared dependencies for all HTTP handlers.
 type Handler struct {
-	Store *Store
+	Sim *simulator.Simulator
 }
 
-func NewHandler(s *Store) *Handler {
-	return &Handler{Store: s}
-}
-
-func (h *Handler) NotImplemented(w http.ResponseWriter, r *http.Request) {
-	helper.WriteError(w, http.StatusNotImplemented, "Not yet implemented.")
+func NewHandler(s *simulator.Simulator) *Handler {
+	return &Handler{Sim: s}
 }
 
 type reqCreateNode struct {
 	ID types.ReplicaID `json:"id"`
-}
-
-type respCreateNode struct {
-	ID    types.ReplicaID `json:"id"`
-	Value uint64          `json:"value"`
 }
 
 func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
@@ -40,12 +32,13 @@ func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = h.Store.CreateNode(req.ID); err != nil {
-		helper.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	h.Sim.Queue.Enqueue(
+		simulator.CreateNodeOperation{
+			StepID:    h.Sim.GetNextStepId(),
+			ReplicaID: req.ID,
+		})
 
-	helper.WriteJSON(w, http.StatusCreated, &respCreateNode{ID: req.ID, Value: 0})
+	helper.WriteOkNoContent(w)
 }
 
 func (h *Handler) RemoveNode(w http.ResponseWriter, r *http.Request) {
@@ -56,31 +49,17 @@ func (h *Handler) RemoveNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = h.Store.RemoveNode(id); err != nil {
-		helper.WriteError(w, http.StatusNotFound, err.Error())
-		return
-	}
+	h.Sim.Queue.Enqueue(
+		simulator.RemoveNodeOperation{
+			StepID:    h.Sim.GetNextStepId(),
+			ReplicaID: id,
+		})
 
-	helper.WriteJSON(w, http.StatusOK, &struct{}{})
-}
-
-type respGetState struct {
-	State map[types.ReplicaID]map[types.ReplicaID]uint64 `json:"state"`
-}
-
-func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
-	state := h.Store.GetState()
-
-	helper.WriteJSON(w, http.StatusOK, &respGetState{State: state})
+	helper.WriteOkNoContent(w)
 }
 
 type reqIncrementNode struct {
 	ID types.ReplicaID `json:"id"`
-}
-
-type respIncrementNode struct {
-	Counts map[types.ReplicaID]uint64
-	Value  uint64
 }
 
 func (h *Handler) IncrementNode(w http.ResponseWriter, r *http.Request) {
@@ -93,24 +72,18 @@ func (h *Handler) IncrementNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshot, err := h.Store.IncrementNodeCounter(req.ID)
+	h.Sim.Queue.Enqueue(
+		simulator.IncrementOperation{
+			StepID:    h.Sim.GetNextStepId(),
+			ReplicaID: req.ID,
+		})
 
-	if err != nil {
-		helper.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	helper.WriteJSON(w, http.StatusOK, &respIncrementNode{Counts: snapshot.Counts, Value: snapshot.Value})
+	helper.WriteOkNoContent(w)
 }
 
 type reqMergeNodes struct {
 	SourceId types.ReplicaID `json:"source-id"`
 	TargetId types.ReplicaID `json:"target-id"`
-}
-
-type respMergeNodes struct {
-	Counts map[types.ReplicaID]uint64
-	Value  uint64
 }
 
 func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
@@ -123,12 +96,99 @@ func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshot, err := h.Store.MergeNodeStates(req.SourceId, req.TargetId)
+	h.Sim.Queue.Enqueue(
+		simulator.SendGossipMessageOperation{
+			StepID: h.Sim.GetNextStepId(),
+			From:   req.SourceId,
+			To:     req.TargetId,
+		})
 
-	if err != nil {
-		helper.WriteError(w, http.StatusBadRequest, err.Error())
-		return
+	helper.WriteOkNoContent(w)
+}
+
+type respGetState struct {
+	State map[types.ReplicaID]map[types.ReplicaID]uint64 `json:"state"`
+}
+
+func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
+	state := h.Sim.Store.GetState()
+
+	helper.WriteJSON(w, http.StatusOK, &respGetState{State: state})
+}
+
+type respGetSteps struct {
+	Steps []respStep `json:"steps"`
+}
+
+type respStep struct {
+	StepID types.StepID `json:"stepId"`
+	Type   string       `json:"type"`
+
+	ReplicaID types.ReplicaID `json:"replicaId,omitempty"`
+
+	From types.ReplicaID `json:"from,omitempty"`
+	To   types.ReplicaID `json:"to,omitempty"`
+}
+
+func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
+	operations := h.Sim.Queue.Operations
+
+	steps := make([]respStep, 0, len(operations))
+
+	for _, op := range operations {
+		switch op := op.(type) {
+		case simulator.CreateNodeOperation:
+			steps = append(steps, respStep{
+				StepID:    op.StepID,
+				Type:      "create_node",
+				ReplicaID: op.ReplicaID,
+			})
+
+		case simulator.RemoveNodeOperation:
+			steps = append(steps, respStep{
+				StepID:    op.StepID,
+				Type:      "remove_node",
+				ReplicaID: op.ReplicaID,
+			})
+
+		case simulator.IncrementOperation:
+			steps = append(steps, respStep{
+				StepID:    op.StepID,
+				Type:      "increment",
+				ReplicaID: op.ReplicaID,
+			})
+
+		case simulator.SendGossipMessageOperation:
+			steps = append(steps, respStep{
+				StepID: op.StepID,
+				Type:   "send_gossip",
+				From:   op.From,
+				To:     op.To,
+			})
+
+		case simulator.ReceiveGossipMessageOperation:
+			steps = append(steps, respStep{
+				StepID: op.StepID,
+				Type:   "receive_gossip",
+				From:   op.Message.From,
+				To:     op.Message.To,
+			})
+		}
 	}
 
-	helper.WriteJSON(w, http.StatusOK, &respMergeNodes{Counts: snapshot.Counts, Value: snapshot.Value})
+	helper.WriteJSON(w, http.StatusOK, &respGetSteps{
+		Steps: steps,
+	})
+}
+
+func (h *Handler) NextStep(w http.ResponseWriter, r *http.Request) {
+	h.Sim.Step()
+
+	helper.WriteOkNoContent(w)
+}
+
+func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
+	h.Sim = simulator.New()
+
+	helper.WriteOkNoContent(w)
 }

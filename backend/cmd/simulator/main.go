@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	simhttp "github.com/marver003/crdt/internal/transport/http/simulator"
+	"github.com/marver003/crdt/internal/simulator"
 )
 
 func main() {
@@ -17,8 +18,8 @@ func main() {
 
 	httpAddr := fmt.Sprintf(":%d", *ptrHttpPort)
 
-	store := simhttp.NewStore()
-	handler := simhttp.NewHandler(store)
+	sim := simulator.New()
+	handler := simhttp.NewHandler(sim)
 	router := simhttp.NewRouter(handler)
 
 	log.Printf("Simulator API listening on %d", *ptrHttpPort)

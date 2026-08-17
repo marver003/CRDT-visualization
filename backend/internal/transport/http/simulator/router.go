@@ -1,4 +1,4 @@
-package simulator
+package simhttp
 
 import (
 	"log"
@@ -25,11 +25,13 @@ func corsMiddleware(next http.Handler) http.Handler {
 func registerRoutes(mux *http.ServeMux, h *Handler) {
 
 	mux.HandleFunc("POST /createNode", h.CreateNode)               // body should contain replicaId
-	mux.HandleFunc("DELETE /removeNode/{replicaId}", h.RemoveNode) // No body
+	mux.HandleFunc("DELETE /removeNode/{replicaId}", h.RemoveNode) // no body
 	mux.HandleFunc("GET /state", h.GetState)                       // state for everything
 	mux.HandleFunc("POST /increment", h.IncrementNode)             // body should contain replicaId
-	mux.HandleFunc("POST /merge", h.MergeNodes)                    // Body should  contain sourceReplicaId and targetReplicaId
-	// some additional endpoints to come...
+	mux.HandleFunc("POST /merge", h.MergeNodes)                    // body should  contain sourceReplicaId and targetReplicaId
+	mux.HandleFunc("GET /steps", h.GetSteps)                       // no body
+	mux.HandleFunc("POST /step", h.NextStep)                       // no body
+	mux.HandleFunc("POST /reset", h.Reset)                         // no body
 
 }
 
