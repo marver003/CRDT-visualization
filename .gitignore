@@ -39,3 +39,8 @@ go.work
 # Ignore all local history of files
 .history
 .ionide
+
+### TypeScript ###
+
+node_modules/
+#dist/

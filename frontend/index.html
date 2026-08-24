@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>G-Counter Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="dist/script.js" defer></script>
+  </head>
+
+  <body>
+    <div class="app">
+      <header class="header">
+        <h1>G-Counter Simulator</h1>
+        <div class="header-actions">
+          <button class="btn btn-refresh">
+            <span class="refresh-icon">&#x1F5D8;</span>
+            Refresh
+          </button>
+          <button id="reset-button" class="btn btn-secondary">
+            Reset Simulation
+          </button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel controls">
+          <div class="panel-header">
+            <h2>Controls</h2>
+          </div>
+
+          <div class="section">
+            <h3>Create Node</h3>
+
+            <label for="replica-id">Replica ID</label>
+            <input
+              id="replica-id"
+              type="number"
+              min="1"
+              max="18446744073709551615"
+              placeholder="1"
+            />
+
+            <button class="btn btn-primary">Create Node</button>
+          </div>
+
+          <div class="section">
+            <h3>Existing Nodes</h3>
+
+            <div class="empty-list">
+              <span>No nodes yet</span>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>Remove Node</h3>
+
+            <label for="remove-node">Replica ID</label>
+            <select id="remove-node">
+              <option>&lt;Select&gt;</option>
+            </select>
+
+            <button id="remove-button" class="btn btn-danger">
+              Remove Node
+            </button>
+          </div>
+
+          <div class="section">
+            <h3>Operations</h3>
+
+            <label for="increment-node">Replica ID</label>
+            <select id="increment-node">
+              <option>&lt;Select&gt;</option>
+            </select>
+            <button id="increment-button" class="btn btn-blue">
+              Increment Node
+            </button>
+            <div class="merge-control">
+              <div class="merge-control-field">
+                <label for="merge-from">From</label>
+                <select id="merge-from">
+                  <option>Select...</option>
+                </select>
+              </div>
+              <span class="merge-arrow">→</span>
+              <div class="merge-control-field">
+                <label for="merge-to">To</label>
+                <select id="merge-to">
+                  <option>Select...</option>
+                </select>
+              </div>
+            </div>
+            <button id="merge-button" class="btn btn-teal">Merge Nodes</button>
+          </div>
+        </section>
+
+        <section class="panel nodes">
+          <div class="panel-header">
+            <h2>Nodes View</h2>
+          </div>
+
+          <div class="nodes-content" id="nodes-container"></div>
+        </section>
+
+        <script src="dist/api.js"></script>
+        <script src="dist/nodes.js"></script>
+
+        <section class="panel queue">
+          <div class="panel-header">
+            <h2>Step Queue</h2>
+          </div>
+
+          <div class="queue-header">
+            <span>#</span>
+            <span>Next Steps</span>
+          </div>
+
+          <div class="queue-content">
+            <div class="queue-empty">
+              <div class="queue-icon">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+
+              <h3>No steps in queue</h3>
+              <p>Perform some operations<br />to see steps here.</p>
+            </div>
+          </div>
+
+          <div class="queue-footer">
+            <button class="btn btn-step">
+              <span class="play-icon">▷</span>
+              Next Step
+            </button>
+          </div>
+        </section>
+
+        <script src="dist/steps.js"></script>
+      </main>
+    </div>
+  </body>
+</html>
