@@ -18,14 +18,15 @@ type IncrementOperation struct {
 }
 
 type SendGossipMessageOperation struct {
-	StepID types.StepID
-	From   types.ReplicaID
-	To     types.ReplicaID
+	StepID  types.StepID
+	From    types.ReplicaID
+	To      types.ReplicaID
+	Message *Message
 }
 
 type ReceiveGossipMessageOperation struct {
 	StepID  types.StepID
-	Message Message
+	Message *Message
 }
 
 func (op CreateNodeOperation) Execute(sim *Simulator) error {
@@ -44,25 +45,18 @@ func (op IncrementOperation) Execute(sim *Simulator) error {
 
 func (op SendGossipMessageOperation) Execute(sim *Simulator) error {
 
-	state := sim.Store.nodes[op.From].Counter.GetSnapshot()
+	state := sim.Store.Nodes[op.From].Counter.GetSnapshot()
 
-	messageId := sim.newMessage(op.From, op.To, state)
-
-	message := sim.PendingMessages[messageId]
-
-	sim.Queue.Enqueue(ReceiveGossipMessageOperation{
-		StepID:  sim.GetNextStepId(),
-		Message: message,
-	})
+	sim.EditMessage(op.Message.ID, &state)
 
 	return nil
 }
 
 func (op ReceiveGossipMessageOperation) Execute(sim *Simulator) error {
 
-	node := sim.Store.nodes[op.Message.To]
+	node := sim.Store.Nodes[op.Message.To]
 
-	node.Counter.Merge(&op.Message.State)
+	node.Counter.Merge(op.Message.State)
 
 	sim.RemovePendingMessage(op.Message.ID)
 

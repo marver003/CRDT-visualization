@@ -42,12 +42,7 @@ func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RemoveNode(w http.ResponseWriter, r *http.Request) {
-	id, err := helper.ParseReplicaId(r.PathValue("replicaId"))
-
-	if err != nil {
-		helper.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
+	id := types.ReplicaID(r.PathValue("replicaId"))
 
 	h.Sim.Queue.Enqueue(
 		simulator.RemoveNodeOperation{
@@ -96,12 +91,21 @@ func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	messageId := h.Sim.NewMessage(req.SourceId, req.TargetId, nil)
+	message := h.Sim.PendingMessages[messageId]
+
 	h.Sim.Queue.Enqueue(
 		simulator.SendGossipMessageOperation{
-			StepID: h.Sim.GetNextStepId(),
-			From:   req.SourceId,
-			To:     req.TargetId,
+			StepID:  h.Sim.GetNextStepId(),
+			From:    req.SourceId,
+			To:      req.TargetId,
+			Message: message,
 		})
+
+	h.Sim.Queue.Enqueue(simulator.ReceiveGossipMessageOperation{
+		StepID:  h.Sim.GetNextStepId(),
+		Message: message,
+	})
 
 	helper.WriteOkNoContent(w)
 }
@@ -182,6 +186,11 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) NextStep(w http.ResponseWriter, r *http.Request) {
+	if h.Sim.Queue.Size() == 0 {
+		helper.WriteError(w, http.StatusBadRequest, "Step Queue is empty")
+		return
+	}
+
 	h.Sim.Step()
 
 	helper.WriteOkNoContent(w)

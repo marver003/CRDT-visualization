@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/marver003/crdt/internal/node"
@@ -21,7 +22,7 @@ func parseNeighborString(neighborString string) []types.Peer {
 
 	for i, neighborString := range neighborStringArray {
 		peer := types.Peer{
-			ID:       types.ReplicaID(i),
+			ID:       types.ReplicaID(fmt.Sprint('A' + i)),
 			GRPCAddr: neighborString,
 		}
 		neighbors = append(neighbors, peer)
@@ -30,24 +31,73 @@ func parseNeighborString(neighborString string) []types.Peer {
 	return neighbors
 }
 
-func main() {
+type FlagConfig struct {
+	NodeID    string
+	HTTPPort  int
+	GRPCPort  int
+	Neighbors string
+}
 
-	ptrNodeId := flag.Uint64("id", 1, "node id (MUST BE UNIQUE)")
-	ptrHttpPort := flag.Int("phttp", 8080, "http server port")
-	ptrGrpcPort := flag.Int("pgrpc", 9080, "grpc server port")
-	ptrNeighbors := flag.String("n", "", "neighbors")
+func ParseFlags() (FlagConfig, error) {
+	var (
+		nodeID    string
+		httpPort  int
+		grpcPort  int
+		neighbors string
+	)
+
+	flag.StringVar(&nodeID, "id", "", "Unique positive number that represents node ID.")
+	flag.StringVar(&neighbors, "n", "", "Semicoln-separated list of other node gRPC server addresses (e.g.: localhost:9081;localhost:9082).")
+	flag.IntVar(&grpcPort, "pgrpc", 9080, "The port used for gRPC server of this node.")
+	flag.IntVar(&httpPort, "phttp", 8080, "The port used for HTTP server of this node.")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
+		fmt.Fprintln(os.Stderr, "Options:")
+		flag.PrintDefaults()
+	}
 
 	flag.Parse()
 
-	httpAddr := fmt.Sprintf(":%d", *ptrHttpPort)
-	grpcAddr := fmt.Sprintf(":%d", *ptrGrpcPort)
-	peers := parseNeighborString(*ptrNeighbors)
+	if nodeID == "A" {
+		return FlagConfig{}, fmt.Errorf("-id is required")
+	}
 
-	node := node.Create(types.ReplicaID(*ptrNodeId), peers)
+	if httpPort < 1 || httpPort > 65535 {
+		return FlagConfig{}, fmt.Errorf("-phttp must be between 1 and 65535")
+	}
+
+	if grpcPort < 1 || grpcPort > 65535 {
+		return FlagConfig{}, fmt.Errorf("-pgrpc must be between 1 and 65535")
+	}
+
+	return FlagConfig{
+		NodeID:    nodeID,
+		HTTPPort:  httpPort,
+		GRPCPort:  grpcPort,
+		Neighbors: neighbors,
+	}, nil
+}
+
+func main() {
+
+	flags, err := ParseFlags()
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %s\n\n", err)
+		flag.Usage()
+		os.Exit(2)
+	}
+
+	httpAddr := fmt.Sprintf(":%d", flags.HTTPPort)
+	grpcAddr := fmt.Sprintf(":%d", flags.GRPCPort)
+	peers := parseNeighborString(flags.Neighbors)
+
+	node := node.Create(types.ReplicaID(flags.NodeID), peers)
 	handler := nodehttp.NewHandler(node)
 	router := nodehttp.NewRouter(handler)
 
-	log.Printf("GCounter API listening on %d", *ptrHttpPort)
+	log.Printf("GCounter API listening on %d", flags.HTTPPort)
 
 	go grpc.GossipServer(grpcAddr, node.Counter)
 	go node.GossipService.Gossip()

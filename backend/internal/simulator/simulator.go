@@ -4,7 +4,7 @@ import "github.com/marver003/crdt/internal/types"
 
 type Simulator struct {
 	Store           *Store
-	PendingMessages map[string]Message
+	PendingMessages map[string]*Message
 	Queue           *StepQueue
 	nextStepID      types.StepID
 }
@@ -12,7 +12,7 @@ type Simulator struct {
 func New() *Simulator {
 	return &Simulator{
 		Store:           NewStore(),
-		PendingMessages: map[string]Message{},
+		PendingMessages: make(map[string]*Message),
 		Queue:           NewQueue(),
 		nextStepID:      1,
 	}

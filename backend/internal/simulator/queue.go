@@ -19,3 +19,7 @@ func (q *StepQueue) Dequeue() Operation {
 
 	return operation
 }
+
+func (q *StepQueue) Size() int {
+	return len(q.Operations)
+}

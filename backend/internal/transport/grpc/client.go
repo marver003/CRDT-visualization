@@ -57,7 +57,7 @@ func (g *GossipService) Gossip() {
 				log.Fatalf("Counter Marshal failed: %v", err.Error())
 			}
 			request := replication.PushStateRequest{
-				CrdtId:   uint64(g.id),
+				CrdtId:   string(g.id),
 				CrdtType: "GCounter",
 				State:    stateBytes,
 			}
