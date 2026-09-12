@@ -1,12 +1,16 @@
 package simulator
 
-import "github.com/marver003/crdt/internal/types"
+import (
+	"github.com/marver003/crdt/internal/crdt"
+	"github.com/marver003/crdt/internal/types"
+)
 
 type Simulator struct {
-	Store           *Store
-	PendingMessages map[string]*Message
-	Queue           *StepQueue
-	nextStepID      types.StepID
+	Store                  *Store
+	PendingMessages        map[string]*Message
+	Queue                  *StepQueue
+	nextStepID             types.StepID
+	currentExecutingStepID types.StepID
 }
 
 func New() *Simulator {
@@ -29,4 +33,14 @@ func (s *Simulator) Step() {
 	op := s.Queue.Dequeue()
 
 	op.Execute(s)
+}
+
+func (s *Simulator) Load(snapshots map[types.ReplicaID]crdt.GCounterSnapshot) *Simulator {
+	s = New()
+
+	for replicaId, snapshot := range snapshots {
+		s.Store.CreateNodeWithSnapshot(replicaId, snapshot)
+	}
+
+	return s
 }

@@ -1,23 +1,23 @@
 package simulator
 
+import "github.com/marver003/crdt/internal/types"
+
 type StepQueue struct {
-	Operations []Operation
+	Operations map[types.StepID][]Operation
 }
 
 func NewQueue() *StepQueue {
-	return &StepQueue{Operations: []Operation{}}
+	return &StepQueue{Operations: make(map[types.StepID][]Operation)}
 }
 
-func (q *StepQueue) Enqueue(op Operation) {
-	q.Operations = append(q.Operations, op)
+func (q *StepQueue) Enqueue(op Operation, stepId types.StepID) {
+	q.Operations[stepId] = append(q.Operations[stepId], op)
 }
 
-func (q *StepQueue) Dequeue() Operation {
-	operation := q.Operations[0]
+func (q *StepQueue) Dequeue(stepId types.StepID) []Operation {
+	operations := q.Operations[stepId]
 
-	q.Operations = q.Operations[1:]
-
-	return operation
+	return operations
 }
 
 func (q *StepQueue) Size() int {

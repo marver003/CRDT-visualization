@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/marver003/crdt/internal/crdt"
 	"github.com/marver003/crdt/internal/simulator"
 	"github.com/marver003/crdt/internal/transport/http/helper"
 	"github.com/marver003/crdt/internal/types"
@@ -16,10 +17,6 @@ type Handler struct {
 
 func NewHandler(s *simulator.Simulator) *Handler {
 	return &Handler{Sim: s}
-}
-
-type reqCreateNode struct {
-	ID types.ReplicaID `json:"id"`
 }
 
 func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
@@ -53,10 +50,6 @@ func (h *Handler) RemoveNode(w http.ResponseWriter, r *http.Request) {
 	helper.WriteOkNoContent(w)
 }
 
-type reqIncrementNode struct {
-	ID types.ReplicaID `json:"id"`
-}
-
 func (h *Handler) IncrementNode(w http.ResponseWriter, r *http.Request) {
 	var req reqIncrementNode
 
@@ -74,11 +67,6 @@ func (h *Handler) IncrementNode(w http.ResponseWriter, r *http.Request) {
 		})
 
 	helper.WriteOkNoContent(w)
-}
-
-type reqMergeNodes struct {
-	SourceId types.ReplicaID `json:"source-id"`
-	TargetId types.ReplicaID `json:"target-id"`
 }
 
 func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
@@ -110,28 +98,10 @@ func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
 	helper.WriteOkNoContent(w)
 }
 
-type respGetState struct {
-	State map[types.ReplicaID]map[types.ReplicaID]uint64 `json:"state"`
-}
-
 func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
 	state := h.Sim.Store.GetState()
 
 	helper.WriteJSON(w, http.StatusOK, &respGetState{State: state})
-}
-
-type respGetSteps struct {
-	Steps []respStep `json:"steps"`
-}
-
-type respStep struct {
-	StepID types.StepID `json:"stepId"`
-	Type   string       `json:"type"`
-
-	ReplicaID types.ReplicaID `json:"replicaId,omitempty"`
-
-	From types.ReplicaID `json:"from,omitempty"`
-	To   types.ReplicaID `json:"to,omitempty"`
 }
 
 func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
@@ -198,6 +168,29 @@ func (h *Handler) NextStep(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 	h.Sim = simulator.New()
+
+	helper.WriteOkNoContent(w)
+}
+
+func (h *Handler) Load(w http.ResponseWriter, r *http.Request) {
+
+	var req reqLoad
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		helper.WriteError(w, http.StatusBadRequest, "Invalid JSON request")
+		return
+	}
+
+	snapshots := make(map[types.ReplicaID]crdt.GCounterSnapshot)
+
+	for nodeID, state := range req.State {
+		snapshots[types.ReplicaID(nodeID)] = crdt.GCounterSnapshot{
+			Counts: state,
+			Value:  0, // value is not important for applying the snapshot
+		}
+	}
+
+	h.Sim = h.Sim.Load(snapshots)
 
 	helper.WriteOkNoContent(w)
 }

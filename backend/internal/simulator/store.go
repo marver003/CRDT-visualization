@@ -27,6 +27,11 @@ func (s *Store) CreateNode(id types.ReplicaID) error {
 	return nil
 }
 
+func (s *Store) CreateNodeWithSnapshot(id types.ReplicaID, snapshot crdt.GCounterSnapshot) {
+	s.Nodes[id] = node.CreateSimNode(id)
+	s.Nodes[id].Counter.ApplySnapshot(snapshot)
+}
+
 func (s *Store) RemoveNode(id types.ReplicaID) error {
 	if _, exists := s.Nodes[id]; !exists {
 		return fmt.Errorf("node %q does not exist", id)

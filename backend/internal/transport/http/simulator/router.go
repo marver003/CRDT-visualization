@@ -32,6 +32,7 @@ func registerRoutes(mux *http.ServeMux, h *Handler) {
 	mux.HandleFunc("GET /steps", h.GetSteps)                       // no body
 	mux.HandleFunc("POST /step", h.NextStep)                       // no body
 	mux.HandleFunc("POST /reset", h.Reset)                         // no body
+	mux.HandleFunc("POST /load", h.Load)                           // body should contain state of every node
 
 }
 
