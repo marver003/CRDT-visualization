@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>G-Counter Simulator</title>
     <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="node-card.css" />
+    <link rel="stylesheet" href="error-popup.css" />
+    <link rel="stylesheet" href="time-graph.css" />
     <script src="dist/script.js" defer></script>
   </head>
 
@@ -13,129 +16,95 @@
       <header class="header">
         <h1>G-Counter Simulator</h1>
         <div class="header-actions">
-          <button class="btn btn-refresh">
-            <span class="refresh-icon">&#x1F5D8;</span>
-            Refresh
-          </button>
-          <button id="reset-button" class="btn btn-secondary">
-            Reset Simulation
-          </button>
-        </div>
+            <input id="load-file-input" type="file" accept=".json" hidden>
+            <button id="load-button" class="btn btn-secondary btn-load">
+              <span class="load-icon">&#x2913;</span>
+              Load State
+            </button>
+            <button class="btn btn-refresh">
+              <span class="refresh-icon">&#x21BB;</span>
+              Refresh
+            </button>
+            <button id="reset-button" class="btn btn-secondary">
+              Reset Simulation
+            </button>
+          </div>
       </header>
 
       <main class="layout">
-        <section class="panel controls">
-          <div class="panel-header">
-            <h2>Controls</h2>
-          </div>
+        <section class="nodes-view">
+          <div class="nodes-content" id="nodes-container"></div>
 
-          <div class="section">
+          <!-- Only surviving piece of the old Controls panel. Everything else
+               (Existing Nodes list, Merge Nodes) was dropped when the Nodes
+               View became the whole page - see CLAUDE.md for the plan. -->
+          <div class="section create-node-section create-node-widget">
             <h3>Create Node</h3>
 
-            <label for="replica-id">Replica ID</label>
-            <input
-              id="replica-id"
-              type="number"
-              min="1"
-              max="18446744073709551615"
-              placeholder="1"
-            />
+            <p class="create-node-description">
+              Add a replica to the counter network.
+            </p>
 
-            <button class="btn btn-primary">Create Node</button>
-          </div>
-
-          <div class="section">
-            <h3>Existing Nodes</h3>
-
-            <div class="empty-list">
-              <span>No nodes yet</span>
-            </div>
-          </div>
-
-          <div class="section">
-            <h3>Remove Node</h3>
-
-            <label for="remove-node">Replica ID</label>
-            <select id="remove-node">
-              <option>&lt;Select&gt;</option>
-            </select>
-
-            <button id="remove-button" class="btn btn-danger">
-              Remove Node
-            </button>
-          </div>
-
-          <div class="section">
-            <h3>Operations</h3>
-
-            <label for="increment-node">Replica ID</label>
-            <select id="increment-node">
-              <option>&lt;Select&gt;</option>
-            </select>
-            <button id="increment-button" class="btn btn-blue">
-              Increment Node
-            </button>
-            <div class="merge-control">
-              <div class="merge-control-field">
-                <label for="merge-from">From</label>
-                <select id="merge-from">
-                  <option>Select...</option>
-                </select>
+            <div class="create-node-field">
+              <div class="create-node-input-wrap">
+                <label for="replica-id">Replica ID</label>
+                <input
+                  id="replica-id"
+                  type="text"
+                  maxlength="1"
+                  pattern="[A-Z]"
+                  placeholder="A"
+                  aria-describedby="replica-id-help"
+                />
               </div>
-              <span class="merge-arrow">→</span>
-              <div class="merge-control-field">
-                <label for="merge-to">To</label>
-                <select id="merge-to">
-                  <option>Select...</option>
-                </select>
-              </div>
+              <button
+                class="btn btn-primary create-node-button"
+                type="button"
+                aria-label="Add node"
+                title="Add node"
+              >
+                <span aria-hidden="true">+</span>
+              </button>
             </div>
-            <button id="merge-button" class="btn btn-teal">Merge Nodes</button>
+            <small id="replica-id-help" class="create-node-help">
+              Choose one letter, for example A.
+            </small>
+          </div>
+
+          <!-- Replication timeline: rows = replicas, columns = executed steps,
+               loosely modeled on the Raft "servers x time" diagram. Replaces
+               the old text-based Step Queue log. Built up client-side in
+               time-graph.ts, since the backend only exposes pending steps. -->
+          <div class="time-graph-widget">
+            <h3 class="time-graph-title">Replication Timeline</h3>
+            <div class="time-graph-scroll" id="time-graph-container">
+              <p class="time-graph-empty">No steps yet</p>
+            </div>
           </div>
         </section>
 
-        <section class="panel nodes">
-          <div class="panel-header">
-            <h2>Nodes View</h2>
+        <div
+          id="critical-error-popup"
+          class="critical-error-popup"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="critical-error-title"
+          aria-describedby="critical-error-message"
+          hidden
+        >
+          <div class="critical-error-dialog">
+            <div class="critical-error-icon" aria-hidden="true">!</div>
+            <h2 id="critical-error-title">Backend connection failed</h2>
+            <p id="critical-error-message"></p>
+            <button id="critical-error-close" class="btn" type="button">Close</button>
           </div>
+        </div>
 
-          <div class="nodes-content" id="nodes-container"></div>
-        </section>
-
+        <script src="dist/error-popup.js"></script>
         <script src="dist/api.js"></script>
+        <script src="dist/node-card.js"></script>
         <script src="dist/nodes.js"></script>
-
-        <section class="panel queue">
-          <div class="panel-header">
-            <h2>Step Queue</h2>
-          </div>
-
-          <div class="queue-header">
-            <span>#</span>
-            <span>Next Steps</span>
-          </div>
-
-          <div class="queue-content">
-            <div class="queue-empty">
-              <div class="queue-icon">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-
-              <h3>No steps in queue</h3>
-              <p>Perform some operations<br />to see steps here.</p>
-            </div>
-          </div>
-
-          <div class="queue-footer">
-            <button class="btn btn-step">
-              <span class="play-icon">▷</span>
-              Next Step
-            </button>
-          </div>
-        </section>
-
+        <script src="dist/time-graph.js"></script>
         <script src="dist/steps.js"></script>
       </main>
     </div>

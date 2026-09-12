@@ -1,0 +1,119 @@
+/* Reusable node card. Use with the markup created by createNodeCard(). */
+.node-card {
+  width: 260px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-header);
+  overflow: hidden;
+}
+
+.node-card-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 22px;
+}
+
+.node-card-body {
+  margin: 0;
+  padding: 14px 16px;
+}
+
+.node-card-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.node-card-action {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 20px;
+  line-height: 1;
+  transition: background 0.15s ease;
+}
+
+.node-card-action:hover {
+  background: var(--bg);
+}
+
+.node-card-remove {
+  color: var(--red);
+  font-size: 16px;
+}
+
+/* State vector, transposed: one row per replica (ID + its count) instead of
+   one column per replica, so the card scales by height, not by squeezed
+   columns, as more nodes join. The row for this card's own replica (see
+   node-card.ts) is bolded so it's obvious which counter this node owns. */
+.node-card-state-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.node-card-state-table th,
+.node-card-state-table td {
+  padding: 2px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 22px;
+}
+
+.node-card-state-table th[scope="row"] {
+  width: 40%;
+  background: var(--panel-header);
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+}
+
+.node-card-state-table td {
+  text-align: right;
+}
+
+.node-card-state-own th[scope="row"],
+.node-card-state-own td {
+  background: #bbceff;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.node-card-state-table td.node-card-value-changed {
+  animation: node-value-changed 1s ease-out;
+  background: #d8f2ef;
+  color: #087c79;
+  font-weight: 700;
+}
+
+.node-card-state-table tbody tr:last-child th,
+.node-card-state-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.node-card-empty {
+  color: var(--muted);
+  font-style: italic;
+  text-align: left !important;
+}
+
+@keyframes node-value-changed {
+  0% {
+    background: #8ddbd5;
+    transform: scale(1.08);
+  }
+
+  100% {
+    background: transparent;
+    transform: scale(1);
+  }
+}

@@ -1,0 +1,102 @@
+/* Replication Timeline widget - floats on the far right of the Nodes View,
+   mirroring the Create Node widget on the far left. */
+.time-graph-widget {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+  width: 340px;
+  max-width: calc(100% - 40px);
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
+}
+
+.time-graph-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.time-graph-scroll {
+  max-width: 100%;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.time-graph-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.time-graph-table {
+  border-collapse: collapse;
+}
+
+.time-graph-table th,
+.time-graph-table td {
+  box-sizing: border-box;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
+  border: 1px solid var(--border);
+  text-align: center;
+  font-size: 13px;
+}
+
+.time-graph-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--panel-header);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.time-graph-table tbody th {
+  position: sticky;
+  left: 0;
+  background: var(--panel-header);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.time-graph-table td {
+  color: var(--muted);
+}
+
+.time-graph-cell--create {
+  background: #efe9ff;
+  color: var(--purple);
+  font-weight: 700;
+}
+
+.time-graph-cell--increment {
+  background: #eef6ff;
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.time-graph-cell--receive {
+  background: #e3f7f6;
+  color: var(--teal);
+  font-weight: 700;
+}
+
+.time-graph-cell--remove {
+  background: #fbe9ea;
+  color: var(--red);
+  font-weight: 700;
+}
+
+.time-graph-cell--gone {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--panel) 0 4px,
+    var(--panel-header) 4px 8px
+  );
+}
