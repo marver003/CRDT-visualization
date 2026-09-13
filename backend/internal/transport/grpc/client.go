@@ -13,15 +13,15 @@ import (
 )
 
 type GossipService struct {
-	id       types.ReplicaID
+	id       types.ReplicaId
 	peers    []types.Peer
 	counter  *crdt.GCounter
 	interval time.Duration
 }
 
-func GossipClient(id types.ReplicaID, peers []types.Peer, counter *crdt.GCounter, interval time.Duration) *GossipService {
+func GossipClient(id types.ReplicaId, peers []types.Peer, counter *crdt.GCounter, interval time.Duration) *GossipService {
 	return &GossipService{
-		id:       types.ReplicaID(id),
+		id:       types.ReplicaId(id),
 		peers:    peers,
 		counter:  counter,
 		interval: interval,

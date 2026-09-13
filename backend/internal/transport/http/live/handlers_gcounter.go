@@ -15,9 +15,9 @@ type Handler struct {
 }
 
 type replicaInfo struct {
-	ID     types.ReplicaID            `json:"id"`
+	Id     types.ReplicaId            `json:"id"`
 	Value  uint64                     `json:"value"`
-	Counts map[types.ReplicaID]uint64 `json:"counts"`
+	Counts map[types.ReplicaId]uint64 `json:"counts"`
 }
 
 // NewHandler returns a Handler backed by the given Node.
@@ -31,7 +31,7 @@ func (h *Handler) GetReplicaState(w http.ResponseWriter, r *http.Request) {
 	snapshot := h.Node.ListSnapshot()
 
 	replInfo := replicaInfo{
-		ID:     h.Node.ID,
+		Id:     h.Node.Id,
 		Value:  snapshot.Value,
 		Counts: snapshot.Counts,
 	}
@@ -45,7 +45,7 @@ func (h *Handler) IncrementReplica(w http.ResponseWriter, r *http.Request) {
 
 	snapshot := h.Node.ListSnapshot()
 	replInfo := replicaInfo{
-		ID:     h.Node.ID,
+		Id:     h.Node.Id,
 		Value:  snapshot.Value,
 		Counts: snapshot.Counts,
 	}

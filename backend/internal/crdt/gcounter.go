@@ -10,19 +10,19 @@ import (
 type GCounter struct {
 	mu sync.RWMutex
 
-	id     types.ReplicaID
-	counts map[types.ReplicaID]uint64
+	id     types.ReplicaId
+	counts map[types.ReplicaId]uint64
 }
 
 type GCounterSnapshot struct {
-	Counts map[types.ReplicaID]uint64
+	Counts map[types.ReplicaId]uint64
 	Value  uint64
 }
 
-func NewGCounter(id types.ReplicaID) *GCounter {
+func NewGCounter(id types.ReplicaId) *GCounter {
 	return &GCounter{
 		id:     id,
-		counts: make(map[types.ReplicaID]uint64),
+		counts: make(map[types.ReplicaId]uint64),
 	}
 }
 
@@ -71,7 +71,7 @@ func (g *GCounter) GetSnapshot() GCounterSnapshot {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	cp := make(map[types.ReplicaID]uint64, len(g.counts))
+	cp := make(map[types.ReplicaId]uint64, len(g.counts))
 
 	var total uint64 = 0
 	for k, v := range g.counts {
@@ -87,7 +87,7 @@ func (g *GCounter) ApplySnapshot(state GCounterSnapshot) error {
 	defer g.mu.Unlock()
 
 	if g.counts == nil {
-		g.counts = make(map[types.ReplicaID]uint64)
+		g.counts = make(map[types.ReplicaId]uint64)
 	}
 
 	for id, v := range state.Counts {

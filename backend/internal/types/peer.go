@@ -1,6 +1,6 @@
 package types
 
 type Peer struct {
-	ID       ReplicaID
+	Id       ReplicaId
 	GRPCAddr string
 }

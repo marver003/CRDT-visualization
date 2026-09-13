@@ -18,6 +18,15 @@ type TimeGraphEntry = {
   value?: number;
 };
 
+// What one operation contributes to a batch - same shape as TimeGraphEntry
+// minus `step`, since every operation in a batch shares one column (see
+// recordTimeGraphBatch).
+type TimeGraphOperation = {
+  nodeId: string;
+  kind: TimeGraphKind;
+  value?: number;
+};
+
 const timeGraphContainer = document.getElementById("time-graph-container") as HTMLElement;
 
 let timeGraphRows: string[] = [];
@@ -31,13 +40,24 @@ function resetTimeGraph() {
   renderTimeGraph();
 }
 
-function recordTimeGraphStep(nodeId: string, kind: TimeGraphKind, value?: number) {
-  if (!timeGraphRows.includes(nodeId)) {
-    timeGraphRows.push(nodeId);
+// Records a whole batch of operations that share one backend StepID as a
+// single column, so they render as simultaneous - one shared step number for
+// all of them, instead of a step per operation.
+function recordTimeGraphBatch(operations: TimeGraphOperation[]) {
+  if (operations.length === 0) {
+    return;
   }
 
   timeGraphStepCount += 1;
-  timeGraphEntries.push({ step: timeGraphStepCount, nodeId, kind, value });
+
+  for (const { nodeId, kind, value } of operations) {
+    if (!timeGraphRows.includes(nodeId)) {
+      timeGraphRows.push(nodeId);
+    }
+
+    timeGraphEntries.push({ step: timeGraphStepCount, nodeId, kind, value });
+  }
+
   renderTimeGraph();
 }
 
@@ -81,7 +101,9 @@ function renderTimeGraph() {
 
   const tbody = document.createElement("tbody");
 
-  for (const nodeId of timeGraphRows) {
+  const sortedRows = [...timeGraphRows].sort();
+
+  for (const nodeId of sortedRows) {
     const row = document.createElement("tr");
     const rowHeader = document.createElement("th");
     rowHeader.scope = "row";

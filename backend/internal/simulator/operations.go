@@ -2,43 +2,51 @@ package simulator
 
 import "github.com/marver003/crdt/internal/types"
 
+type BaseOperation struct {
+	StepId types.StepId
+}
+
 type CreateNodeOperation struct {
-	StepID    types.StepID
-	ReplicaID types.ReplicaID
+	BaseOperation
+	ReplicaId types.ReplicaId
 }
 
 type RemoveNodeOperation struct {
-	StepID    types.StepID
-	ReplicaID types.ReplicaID
+	BaseOperation
+	ReplicaId types.ReplicaId
 }
 
 type IncrementOperation struct {
-	StepID    types.StepID
-	ReplicaID types.ReplicaID
+	BaseOperation
+	ReplicaId types.ReplicaId
 }
 
 type SendGossipMessageOperation struct {
-	StepID  types.StepID
-	From    types.ReplicaID
-	To      types.ReplicaID
+	BaseOperation
+	From    types.ReplicaId
+	To      types.ReplicaId
 	Message *Message
 }
 
 type ReceiveGossipMessageOperation struct {
-	StepID  types.StepID
+	BaseOperation
 	Message *Message
 }
 
+func (op BaseOperation) GetStepId() types.StepId {
+	return op.StepId
+}
+
 func (op CreateNodeOperation) Execute(sim *Simulator) error {
-	return sim.Store.CreateNode(op.ReplicaID)
+	return sim.Store.CreateNode(op.ReplicaId)
 }
 
 func (op RemoveNodeOperation) Execute(sim *Simulator) error {
-	return sim.Store.RemoveNode(op.ReplicaID)
+	return sim.Store.RemoveNode(op.ReplicaId)
 }
 
 func (op IncrementOperation) Execute(sim *Simulator) error {
-	sim.Store.IncrementNodeCounter(op.ReplicaID) // returns (crdt.GCounterSnapshot, error)
+	sim.Store.IncrementNodeCounter(op.ReplicaId) // returns (crdt.GCounterSnapshot, error)
 
 	return nil
 }
@@ -47,7 +55,7 @@ func (op SendGossipMessageOperation) Execute(sim *Simulator) error {
 
 	state := sim.Store.Nodes[op.From].Counter.GetSnapshot()
 
-	sim.EditMessage(op.Message.ID, &state)
+	sim.EditMessage(op.Message.Id, &state)
 
 	return nil
 }
@@ -58,7 +66,7 @@ func (op ReceiveGossipMessageOperation) Execute(sim *Simulator) error {
 
 	node.Counter.Merge(op.Message.State)
 
-	sim.RemovePendingMessage(op.Message.ID)
+	sim.RemovePendingMessage(op.Message.Id)
 
 	return nil
 }

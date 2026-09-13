@@ -1,5 +1,5 @@
 package types
 
-type ReplicaID string
+type ReplicaId string
 
-type StepID uint64
+type StepId uint64

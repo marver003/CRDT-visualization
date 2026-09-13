@@ -43,4 +43,4 @@ go.work
 ### TypeScript ###
 
 node_modules/
-#dist/
+dist/

@@ -22,7 +22,7 @@ func parseNeighborString(neighborString string) []types.Peer {
 
 	for i, neighborString := range neighborStringArray {
 		peer := types.Peer{
-			ID:       types.ReplicaID(fmt.Sprint('A' + i)),
+			Id:       types.ReplicaId(fmt.Sprint('A' + i)),
 			GRPCAddr: neighborString,
 		}
 		neighbors = append(neighbors, peer)
@@ -32,7 +32,7 @@ func parseNeighborString(neighborString string) []types.Peer {
 }
 
 type FlagConfig struct {
-	NodeID    string
+	NodeId    string
 	HTTPPort  int
 	GRPCPort  int
 	Neighbors string
@@ -40,13 +40,13 @@ type FlagConfig struct {
 
 func ParseFlags() (FlagConfig, error) {
 	var (
-		nodeID    string
+		nodeId    string
 		httpPort  int
 		grpcPort  int
 		neighbors string
 	)
 
-	flag.StringVar(&nodeID, "id", "", "Unique positive number that represents node ID.")
+	flag.StringVar(&nodeId, "id", "", "Unique positive number that represents node ID.")
 	flag.StringVar(&neighbors, "n", "", "Semicoln-separated list of other node gRPC server addresses (e.g.: localhost:9081;localhost:9082).")
 	flag.IntVar(&grpcPort, "pgrpc", 9080, "The port used for gRPC server of this node.")
 	flag.IntVar(&httpPort, "phttp", 8080, "The port used for HTTP server of this node.")
@@ -59,7 +59,7 @@ func ParseFlags() (FlagConfig, error) {
 
 	flag.Parse()
 
-	if nodeID == "A" {
+	if nodeId == "A" {
 		return FlagConfig{}, fmt.Errorf("-id is required")
 	}
 
@@ -72,7 +72,7 @@ func ParseFlags() (FlagConfig, error) {
 	}
 
 	return FlagConfig{
-		NodeID:    nodeID,
+		NodeId:    nodeId,
 		HTTPPort:  httpPort,
 		GRPCPort:  grpcPort,
 		Neighbors: neighbors,
@@ -93,7 +93,7 @@ func main() {
 	grpcAddr := fmt.Sprintf(":%d", flags.GRPCPort)
 	peers := parseNeighborString(flags.Neighbors)
 
-	node := node.Create(types.ReplicaID(flags.NodeID), peers)
+	node := node.Create(types.ReplicaId(flags.NodeId), peers)
 	handler := nodehttp.NewHandler(node)
 	router := nodehttp.NewRouter(handler)
 

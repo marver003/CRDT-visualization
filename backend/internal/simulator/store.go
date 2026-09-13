@@ -9,14 +9,14 @@ import (
 )
 
 type Store struct {
-	Nodes map[types.ReplicaID]*node.Node
+	Nodes map[types.ReplicaId]*node.Node
 }
 
 func NewStore() *Store {
-	return &Store{make(map[types.ReplicaID]*node.Node)}
+	return &Store{make(map[types.ReplicaId]*node.Node)}
 }
 
-func (s *Store) CreateNode(id types.ReplicaID) error {
+func (s *Store) CreateNode(id types.ReplicaId) error {
 
 	if _, exists := s.Nodes[id]; exists {
 		return fmt.Errorf("node %q already exists", id)
@@ -27,12 +27,12 @@ func (s *Store) CreateNode(id types.ReplicaID) error {
 	return nil
 }
 
-func (s *Store) CreateNodeWithSnapshot(id types.ReplicaID, snapshot crdt.GCounterSnapshot) {
+func (s *Store) CreateNodeWithSnapshot(id types.ReplicaId, snapshot crdt.GCounterSnapshot) {
 	s.Nodes[id] = node.CreateSimNode(id)
 	s.Nodes[id].Counter.ApplySnapshot(snapshot)
 }
 
-func (s *Store) RemoveNode(id types.ReplicaID) error {
+func (s *Store) RemoveNode(id types.ReplicaId) error {
 	if _, exists := s.Nodes[id]; !exists {
 		return fmt.Errorf("node %q does not exist", id)
 	}
@@ -42,8 +42,8 @@ func (s *Store) RemoveNode(id types.ReplicaID) error {
 	return nil
 }
 
-func (s *Store) GetState() map[types.ReplicaID]map[types.ReplicaID]uint64 {
-	state := make(map[types.ReplicaID]map[types.ReplicaID]uint64, len(s.Nodes))
+func (s *Store) GetState() map[types.ReplicaId]map[types.ReplicaId]uint64 {
+	state := make(map[types.ReplicaId]map[types.ReplicaId]uint64, len(s.Nodes))
 
 	for id, node := range s.Nodes {
 		state[id] = node.Counter.GetSnapshotCounts().Counts
@@ -52,7 +52,7 @@ func (s *Store) GetState() map[types.ReplicaID]map[types.ReplicaID]uint64 {
 	return state
 }
 
-func (s *Store) IncrementNodeCounter(id types.ReplicaID) (crdt.GCounterSnapshot, error) {
+func (s *Store) IncrementNodeCounter(id types.ReplicaId) (crdt.GCounterSnapshot, error) {
 	if _, exists := s.Nodes[id]; !exists {
 		return crdt.GCounterSnapshot{}, fmt.Errorf("node %q does not exist", id)
 	}
@@ -62,7 +62,7 @@ func (s *Store) IncrementNodeCounter(id types.ReplicaID) (crdt.GCounterSnapshot,
 	return s.Nodes[id].Counter.GetSnapshot(), nil
 }
 
-func (s *Store) MergeNodeStates(sourceId, targetId types.ReplicaID) (crdt.GCounterSnapshot, error) {
+func (s *Store) MergeNodeStates(sourceId, targetId types.ReplicaId) (crdt.GCounterSnapshot, error) {
 	if _, exists := s.Nodes[sourceId]; !exists {
 		return crdt.GCounterSnapshot{}, fmt.Errorf("source node %q does not exist", sourceId)
 	}

@@ -4,6 +4,12 @@
 // the gossip send/receive animations below for any step that needs them.
 // (Merge is currently removed from the UI, so send_gossip/receive_gossip
 // steps don't occur today - this stays ready for when merge comes back.)
+//
+// The backend can group several operations under one shared StepID and
+// executes that whole group in a single /step call - meaning those
+// operations are meant to happen simultaneously. /steps now only ever
+// returns genuinely pending entries, sorted ascending by stepId, so the
+// batch to run next is just "every entry sharing the lowest stepId".
 
 type Step = {
   stepId: number;
@@ -46,59 +52,71 @@ async function runQueuedSteps() {
 
 async function drainStepQueue() {
   while (true) {
-    const nextStep = await getNextStep();
+    const batch = await getNextStepBatch();
 
-    if (!nextStep) {
+    if (batch.length === 0) {
       return;
     }
 
-    const previousState =
-      nextStep.type === "receive_gossip"
-        ? await getStateAPI<SimulatorState>()
-        : null;
+    const needsPreviousState = batch.some((step) => step.type === "receive_gossip");
+    const previousState = needsPreviousState ? await getStateAPI<SimulatorState>() : null;
 
-    if (nextStep.type === "send_gossip" && nextStep.from && nextStep.to) {
-      await playGossipSendAnimation(nextStep.from, nextStep.to);
-    }
-
-    if (nextStep.type === "receive_gossip" && nextStep.to) {
-      await playGossipReceiveAnimation(nextStep.to);
-    }
+    // Everything in a batch shares one stepId - the backend executes them
+    // together in a single /step call, so their animations run together too
+    // (Promise.all, not one-by-one) rather than staggered in sequence.
+    await Promise.all(batch.map(playStepAnimation));
 
     if (!await executeNextStepAPI()) {
       return;
     }
 
     await renderState();
-    recordStepInTimeGraph(nextStep);
+    recordTimeGraphBatch(batch.map(toTimeGraphOperation).filter((op): op is TimeGraphOperation => op !== null));
 
-    if (previousState && nextStep.to) {
+    if (previousState) {
       await nextFrame();
-      highlightReceivedState(previousState, nextStep.to);
+      for (const step of batch) {
+        if (step.type === "receive_gossip" && step.to) {
+          highlightReceivedState(previousState, step.to);
+        }
+      }
     }
   }
 }
 
-// Feeds the executed step into the Replication Timeline widget (time-graph.ts).
-// Reads the resulting own-counter straight from the just-rendered card rather
-// than making another API round trip.
-function recordStepInTimeGraph(step: Step) {
+function playStepAnimation(step: Step): Promise<void> {
+  if (step.type === "send_gossip" && step.from && step.to) {
+    return playGossipSendAnimation(step.from, step.to);
+  }
+
+  if (step.type === "receive_gossip" && step.to) {
+    return playGossipReceiveAnimation(step.to);
+  }
+
+  return Promise.resolve();
+}
+
+// Maps an executed step to what the Replication Timeline widget
+// (time-graph.ts) should show for it. Reads the resulting own-counter
+// straight from the just-rendered card rather than another API round trip.
+function toTimeGraphOperation(step: Step): TimeGraphOperation | null {
   switch (step.type) {
     case "create_node":
-      if (step.replicaId) recordTimeGraphStep(step.replicaId, "create", 0);
-      break;
+      return step.replicaId ? { nodeId: step.replicaId, kind: "create", value: 0 } : null;
 
     case "increment":
-      if (step.replicaId) recordTimeGraphStep(step.replicaId, "increment", getOwnCounter(step.replicaId));
-      break;
+      return step.replicaId
+        ? { nodeId: step.replicaId, kind: "increment", value: getOwnCounter(step.replicaId) }
+        : null;
 
     case "remove_node":
-      if (step.replicaId) recordTimeGraphStep(step.replicaId, "remove");
-      break;
+      return step.replicaId ? { nodeId: step.replicaId, kind: "remove" } : null;
 
     case "receive_gossip":
-      if (step.to) recordTimeGraphStep(step.to, "receive", getOwnCounter(step.to));
-      break;
+      return step.to ? { nodeId: step.to, kind: "receive", value: getOwnCounter(step.to) } : null;
+
+    default:
+      return null;
   }
 }
 
@@ -108,9 +126,18 @@ function getOwnCounter(nodeId: string): number | undefined {
   return text ? Number(text) : undefined;
 }
 
-async function getNextStep(): Promise<Step | null> {
+// The next batch to run is every entry sharing the lowest stepId. /steps only
+// returns pending entries, sorted ascending, so that's just a prefix filter.
+async function getNextStepBatch(): Promise<Step[]> {
   const response = await getStepsAPI<{ steps?: Step[] }>();
-  return response?.steps?.[0] ?? null;
+  const steps = response?.steps ?? [];
+
+  if (steps.length === 0) {
+    return [];
+  }
+
+  const stepId = steps[0].stepId;
+  return steps.filter((step) => step.stepId === stepId);
 }
 
 async function playGossipSendAnimation(from: string, to: string) {

@@ -6,11 +6,11 @@ import (
 )
 
 type Simulator struct {
-	Store                  *Store
-	PendingMessages        map[string]*Message
-	Queue                  *StepQueue
-	nextStepID             types.StepID
-	currentExecutingStepID types.StepID
+	Store           *Store
+	PendingMessages map[string]*Message
+	Queue           *StepQueue
+	NextStepId      types.StepId
+	ExecutingStepId types.StepId
 }
 
 func New() *Simulator {
@@ -18,24 +18,30 @@ func New() *Simulator {
 		Store:           NewStore(),
 		PendingMessages: make(map[string]*Message),
 		Queue:           NewQueue(),
-		nextStepID:      1,
+		NextStepId:      1,
+		ExecutingStepId: 1,
 	}
 }
 
-func (s *Simulator) GetNextStepId() types.StepID {
-	stepID := s.nextStepID
-	s.nextStepID++
+// GetNextStepId returns step ID value before it was incremented
+func (s *Simulator) GetNextStepId() types.StepId {
+	stepId := s.NextStepId
+	s.NextStepId++
 
-	return stepID
+	return stepId
 }
 
 func (s *Simulator) Step() {
-	op := s.Queue.Dequeue()
+	ops := s.Queue.Dequeue(s.ExecutingStepId)
 
-	op.Execute(s)
+	for _, op := range ops {
+		op.Execute(s)
+	}
+
+	s.ExecutingStepId++
 }
 
-func (s *Simulator) Load(snapshots map[types.ReplicaID]crdt.GCounterSnapshot) *Simulator {
+func (s *Simulator) Load(snapshots map[types.ReplicaId]crdt.GCounterSnapshot) *Simulator {
 	s = New()
 
 	for replicaId, snapshot := range snapshots {

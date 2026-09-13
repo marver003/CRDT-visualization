@@ -7,17 +7,17 @@ import (
 )
 
 type Message struct {
-	ID    string
-	From  types.ReplicaID
-	To    types.ReplicaID
+	Id    string
+	From  types.ReplicaId
+	To    types.ReplicaId
 	State *crdt.GCounterSnapshot
 }
 
-func (s *Simulator) NewMessage(from, to types.ReplicaID, state *crdt.GCounterSnapshot) string {
+func (s *Simulator) NewMessage(from, to types.ReplicaId, state *crdt.GCounterSnapshot) string {
 	messageId := uuid.NewString()
 
 	s.PendingMessages[messageId] = &Message{
-		ID:    messageId,
+		Id:    messageId,
 		From:  from,
 		To:    to,
 		State: state,

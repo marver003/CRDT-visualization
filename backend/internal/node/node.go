@@ -10,29 +10,29 @@ import (
 )
 
 type Node struct {
-	ID            types.ReplicaID
+	Id            types.ReplicaId
 	Counter       *crdt.GCounter
 	Peers         []types.Peer
 	GossipService *grpc.GossipService
 }
 
 // Create initializes and returns a node
-func Create(id types.ReplicaID, peers []types.Peer) *Node {
+func Create(id types.ReplicaId, peers []types.Peer) *Node {
 	log.Println("Creating new node")
 	counter := crdt.NewGCounter(id)
 	return &Node{
-		ID:            id,
+		Id:            id,
 		Counter:       counter,
 		Peers:         peers,
 		GossipService: grpc.GossipClient(id, peers, counter, 5*time.Second),
 	}
 }
 
-func CreateSimNode(id types.ReplicaID) *Node {
+func CreateSimNode(id types.ReplicaId) *Node {
 	log.Println("Creating new SIM node")
 	counter := crdt.NewGCounter(id)
 	return &Node{
-		ID: id,
+		Id:      id,
 		Counter: counter,
 	}
 }

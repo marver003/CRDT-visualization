@@ -3,6 +3,7 @@ package simhttp
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 
 	"github.com/marver003/crdt/internal/crdt"
 	"github.com/marver003/crdt/internal/simulator"
@@ -29,22 +30,26 @@ func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	stepId := h.Sim.GetNextStepId()
+
 	h.Sim.Queue.Enqueue(
 		simulator.CreateNodeOperation{
-			StepID:    h.Sim.GetNextStepId(),
-			ReplicaID: req.ID,
+			BaseOperation: simulator.BaseOperation{StepId: stepId},
+			ReplicaId:     req.Id,
 		})
 
 	helper.WriteOkNoContent(w)
 }
 
 func (h *Handler) RemoveNode(w http.ResponseWriter, r *http.Request) {
-	id := types.ReplicaID(r.PathValue("replicaId"))
+	id := types.ReplicaId(r.PathValue("replicaId"))
+
+	stepId := h.Sim.GetNextStepId()
 
 	h.Sim.Queue.Enqueue(
 		simulator.RemoveNodeOperation{
-			StepID:    h.Sim.GetNextStepId(),
-			ReplicaID: id,
+			BaseOperation: simulator.BaseOperation{StepId: stepId},
+			ReplicaId:     id,
 		})
 
 	helper.WriteOkNoContent(w)
@@ -62,9 +67,33 @@ func (h *Handler) IncrementNode(w http.ResponseWriter, r *http.Request) {
 
 	h.Sim.Queue.Enqueue(
 		simulator.IncrementOperation{
-			StepID:    h.Sim.GetNextStepId(),
-			ReplicaID: req.ID,
+			BaseOperation: simulator.BaseOperation{StepId: h.Sim.GetNextStepId()},
+			ReplicaId:     req.Id,
 		})
+
+	stepIdSend := h.Sim.GetNextStepId()
+	stepIdReceive := h.Sim.GetNextStepId()
+
+	for _, node := range h.Sim.Store.Nodes {
+		if req.Id == node.Id {
+			continue
+		}
+
+		messageId := h.Sim.NewMessage(req.Id, node.Id, nil)
+		message := h.Sim.PendingMessages[messageId]
+
+		h.Sim.Queue.Enqueue(simulator.SendGossipMessageOperation{
+			BaseOperation: simulator.BaseOperation{StepId: stepIdSend},
+			From:          req.Id,
+			To:            node.Id,
+			Message:       message,
+		})
+
+		h.Sim.Queue.Enqueue(simulator.ReceiveGossipMessageOperation{
+			BaseOperation: simulator.BaseOperation{StepId: stepIdReceive},
+			Message:       message,
+		})
+	}
 
 	helper.WriteOkNoContent(w)
 }
@@ -82,17 +111,19 @@ func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
 	messageId := h.Sim.NewMessage(req.SourceId, req.TargetId, nil)
 	message := h.Sim.PendingMessages[messageId]
 
+	stepId := h.Sim.GetNextStepId()
 	h.Sim.Queue.Enqueue(
 		simulator.SendGossipMessageOperation{
-			StepID:  h.Sim.GetNextStepId(),
-			From:    req.SourceId,
-			To:      req.TargetId,
-			Message: message,
+			BaseOperation: simulator.BaseOperation{StepId: stepId},
+			From:          req.SourceId,
+			To:            req.TargetId,
+			Message:       message,
 		})
 
+	stepId = h.Sim.GetNextStepId()
 	h.Sim.Queue.Enqueue(simulator.ReceiveGossipMessageOperation{
-		StepID:  h.Sim.GetNextStepId(),
-		Message: message,
+		BaseOperation: simulator.BaseOperation{StepId: stepId},
+		Message:       message,
 	})
 
 	helper.WriteOkNoContent(w)
@@ -109,46 +140,54 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 
 	steps := make([]respStep, 0, len(operations))
 
-	for _, op := range operations {
-		switch op := op.(type) {
-		case simulator.CreateNodeOperation:
-			steps = append(steps, respStep{
-				StepID:    op.StepID,
-				Type:      "create_node",
-				ReplicaID: op.ReplicaID,
-			})
+	for _, ops := range operations {
+		for _, op := range ops {
+			switch op := op.(type) {
+			case simulator.CreateNodeOperation:
+				steps = append(steps, respStep{
+					StepId:    op.StepId,
+					Type:      "create_node",
+					ReplicaId: op.ReplicaId,
+				})
 
-		case simulator.RemoveNodeOperation:
-			steps = append(steps, respStep{
-				StepID:    op.StepID,
-				Type:      "remove_node",
-				ReplicaID: op.ReplicaID,
-			})
+			case simulator.RemoveNodeOperation:
+				steps = append(steps, respStep{
+					StepId:    op.StepId,
+					Type:      "remove_node",
+					ReplicaId: op.ReplicaId,
+				})
 
-		case simulator.IncrementOperation:
-			steps = append(steps, respStep{
-				StepID:    op.StepID,
-				Type:      "increment",
-				ReplicaID: op.ReplicaID,
-			})
+			case simulator.IncrementOperation:
+				steps = append(steps, respStep{
+					StepId:    op.StepId,
+					Type:      "increment",
+					ReplicaId: op.ReplicaId,
+				})
 
-		case simulator.SendGossipMessageOperation:
-			steps = append(steps, respStep{
-				StepID: op.StepID,
-				Type:   "send_gossip",
-				From:   op.From,
-				To:     op.To,
-			})
+			case simulator.SendGossipMessageOperation:
+				steps = append(steps, respStep{
+					StepId: op.StepId,
+					Type:   "send_gossip",
+					From:   op.From,
+					To:     op.To,
+				})
 
-		case simulator.ReceiveGossipMessageOperation:
-			steps = append(steps, respStep{
-				StepID: op.StepID,
-				Type:   "receive_gossip",
-				From:   op.Message.From,
-				To:     op.Message.To,
-			})
+			case simulator.ReceiveGossipMessageOperation:
+				steps = append(steps, respStep{
+					StepId: op.StepId,
+					Type:   "receive_gossip",
+					From:   op.Message.From,
+					To:     op.Message.To,
+				})
+			}
 		}
+
 	}
+
+	// sort steps ASC
+	slices.SortFunc(steps, func(a, b respStep) int {
+		return int(a.StepId) - int(b.StepId)
+	})
 
 	helper.WriteJSON(w, http.StatusOK, &respGetSteps{
 		Steps: steps,
@@ -156,8 +195,8 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) NextStep(w http.ResponseWriter, r *http.Request) {
-	if h.Sim.Queue.Size() == 0 {
-		helper.WriteError(w, http.StatusBadRequest, "Step Queue is empty")
+	if h.Sim.ExecutingStepId == h.Sim.NextStepId {
+		helper.WriteError(w, http.StatusBadRequest, "There is no next step")
 		return
 	}
 
@@ -181,10 +220,10 @@ func (h *Handler) Load(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshots := make(map[types.ReplicaID]crdt.GCounterSnapshot)
+	snapshots := make(map[types.ReplicaId]crdt.GCounterSnapshot)
 
-	for nodeID, state := range req.State {
-		snapshots[types.ReplicaID(nodeID)] = crdt.GCounterSnapshot{
+	for nodeId, state := range req.State {
+		snapshots[types.ReplicaId(nodeId)] = crdt.GCounterSnapshot{
 			Counts: state,
 			Value:  0, // value is not important for applying the snapshot
 		}
