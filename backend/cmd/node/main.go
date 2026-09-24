@@ -6,103 +6,51 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
+	"github.com/marver003/crdt/internal/config"
 	"github.com/marver003/crdt/internal/node"
 	"github.com/marver003/crdt/internal/transport/grpc"
 	nodehttp "github.com/marver003/crdt/internal/transport/http/live"
 	"github.com/marver003/crdt/internal/types"
 )
 
-func parseNeighborString(neighborString string) []types.Peer {
-
-	neighborStringArray := strings.Split(neighborString, ";")
-
-	var neighbors []types.Peer
-
-	for i, neighborString := range neighborStringArray {
-		peer := types.Peer{
-			Id:       types.ReplicaId(fmt.Sprint('A' + i)),
-			GRPCAddr: neighborString,
-		}
-		neighbors = append(neighbors, peer)
-	}
-
-	return neighbors
-}
-
-type FlagConfig struct {
-	NodeId    string
-	HTTPPort  int
-	GRPCPort  int
-	Neighbors string
-}
-
-func ParseFlags() (FlagConfig, error) {
-	var (
-		nodeId    string
-		httpPort  int
-		grpcPort  int
-		neighbors string
-	)
-
-	flag.StringVar(&nodeId, "id", "", "Unique positive number that represents node ID.")
-	flag.StringVar(&neighbors, "n", "", "Semicoln-separated list of other node gRPC server addresses (e.g.: localhost:9081;localhost:9082).")
-	flag.IntVar(&grpcPort, "pgrpc", 9080, "The port used for gRPC server of this node.")
-	flag.IntVar(&httpPort, "phttp", 8080, "The port used for HTTP server of this node.")
-
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintln(os.Stderr, "Options:")
-		flag.PrintDefaults()
-	}
-
+func main() {
+	configPath := flag.String("config", "", "Path to the live YAML config shared by all nodes.")
+	nodeId := flag.String("id", "", "Id of this node, as defined under nodes in the config.")
 	flag.Parse()
 
-	if nodeId == "A" {
-		return FlagConfig{}, fmt.Errorf("-id is required")
-	}
-
-	if httpPort < 1 || httpPort > 65535 {
-		return FlagConfig{}, fmt.Errorf("-phttp must be between 1 and 65535")
-	}
-
-	if grpcPort < 1 || grpcPort > 65535 {
-		return FlagConfig{}, fmt.Errorf("-pgrpc must be between 1 and 65535")
-	}
-
-	return FlagConfig{
-		NodeId:    nodeId,
-		HTTPPort:  httpPort,
-		GRPCPort:  grpcPort,
-		Neighbors: neighbors,
-	}, nil
-}
-
-func main() {
-
-	flags, err := ParseFlags()
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error: %s\n\n", err)
+	if *configPath == "" || *nodeId == "" {
+		fmt.Fprintln(os.Stderr, "error: --config and --id are required")
 		flag.Usage()
 		os.Exit(2)
 	}
 
-	httpAddr := fmt.Sprintf(":%d", flags.HTTPPort)
-	grpcAddr := fmt.Sprintf(":%d", flags.GRPCPort)
-	peers := parseNeighborString(flags.Neighbors)
+	cfg, err := config.LoadLive(*configPath)
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
 
-	node := node.Create(types.ReplicaId(flags.NodeId), peers)
-	handler := nodehttp.NewHandler(node)
+	id := types.ReplicaId(*nodeId)
+
+	nodeCfg, exists := cfg.Node(id)
+	if !exists {
+		log.Fatalf("config: node %q is not defined in %s", id, *configPath)
+	}
+
+	n, err := node.Create(id, nodeCfg.Crdt, cfg.Peers(id))
+	if err != nil {
+		log.Fatalf("node creation failed: %v", err)
+	}
+
+	handler := nodehttp.NewHandler(n)
 	router := nodehttp.NewRouter(handler)
 
-	log.Printf("GCounter API listening on %d", flags.HTTPPort)
+	log.Printf("Node %s (%s) API listening on %d, gRPC on %d", id, nodeCfg.Crdt, nodeCfg.HTTPPort, nodeCfg.GRPCPort)
 
-	go grpc.GossipServer(grpcAddr, node.Counter)
-	go node.GossipService.Gossip()
+	go grpc.GossipServer(fmt.Sprintf(":%d", nodeCfg.GRPCPort), n.Crdt)
+	go n.GossipService.Gossip()
 
-	if err := http.ListenAndServe(httpAddr, router); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", nodeCfg.HTTPPort), router); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

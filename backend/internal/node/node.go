@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -11,42 +12,54 @@ import (
 
 type Node struct {
 	Id            types.ReplicaId
-	Counter       *crdt.GCounter
+	Crdt          crdt.CRDT
 	Peers         []types.Peer
 	GossipService *grpc.GossipService
 }
 
 // Create initializes and returns a node
-func Create(id types.ReplicaId, peers []types.Peer) *Node {
+func Create(id types.ReplicaId, crdtType types.CrdtType, peers []types.Peer) (*Node, error) {
 	log.Println("Creating new node")
-	counter := crdt.NewGCounter(id)
+	crdtInstance, err := crdt.NewCrdt(id, crdtType)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Node{
 		Id:            id,
-		Counter:       counter,
+		Crdt:          crdtInstance,
 		Peers:         peers,
-		GossipService: grpc.GossipClient(id, peers, counter, 5*time.Second),
-	}
+		GossipService: grpc.GossipClient(id, peers, crdtInstance, 5*time.Second),
+	}, nil
 }
 
-func CreateSimNode(id types.ReplicaId) *Node {
+func CreateSimNode(id types.ReplicaId, crdtType types.CrdtType) (*Node, error) {
 	log.Println("Creating new SIM node")
-	counter := crdt.NewGCounter(id)
-	return &Node{
-		Id:      id,
-		Counter: counter,
+	crdtInstance, err := crdt.NewCrdt(id, crdtType)
+	if err != nil {
+		return nil, err
 	}
+
+	return &Node{
+		Id:   id,
+		Crdt: crdtInstance,
+	}, nil
 }
 
 // ListSnapshot returns a snapshot of replica's state
-func (n *Node) ListSnapshot() crdt.GCounterSnapshot {
-	return n.Counter.GetSnapshot()
+func (n *Node) ListSnapshot() crdt.Snapshot {
+	return n.Crdt.GetSnapshot()
 }
 
-// GetValue returns sum of counter counts
-func (n *Node) GetValue() uint64 {
-	return n.Counter.Value()
-}
+// Increment is GCounter specific
+func (n *Node) Increment() error {
+	gcounter, ok := n.Crdt.(*crdt.GCounter)
 
-func (n *Node) Increment() {
-	n.Counter.Increment()
+	if !ok {
+		return fmt.Errorf("Unsuccessful assertion to *crdt.GCounter")
+	}
+
+	gcounter.Increment()
+
+	return nil
 }

@@ -2,6 +2,7 @@ package crdt
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/marver003/crdt/internal/types"
@@ -24,6 +25,14 @@ func NewGCounter(id types.ReplicaId) *GCounter {
 		id:     id,
 		counts: make(map[types.ReplicaId]uint64),
 	}
+}
+
+func (g *GCounter) Type() types.CrdtType {
+	return types.GCounterType
+}
+
+func (g *GCounterSnapshot) Type() types.CrdtType {
+	return types.GCounterType
 }
 
 func (g *GCounter) Increment() {
@@ -51,11 +60,11 @@ func (g *GCounter) Value() uint64 {
 	return sum
 }
 
-func (g *GCounter) Merge(other *GCounterSnapshot) {
+func (g *GCounter) Merge(other Snapshot) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
-	for id, v := range other.Counts {
+	for id, v := range other.(*GCounterSnapshot).Counts {
 		g.counts[id] = max(v, g.counts[id])
 	}
 }
@@ -67,7 +76,7 @@ func (g *GCounter) GetSnapshotCounts() GCounterSnapshot {
 	return GCounterSnapshot{Counts: g.counts}
 }
 
-func (g *GCounter) GetSnapshot() GCounterSnapshot {
+func (g *GCounter) GetSnapshot() Snapshot {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
@@ -79,21 +88,22 @@ func (g *GCounter) GetSnapshot() GCounterSnapshot {
 		total += v
 	}
 
-	return GCounterSnapshot{Counts: cp, Value: total}
+	return &GCounterSnapshot{Counts: cp, Value: total}
 }
 
-func (g *GCounter) ApplySnapshot(state GCounterSnapshot) error {
+func (g *GCounter) ApplySnapshot(state Snapshot) error {
+	snapshot, ok := state.(*GCounterSnapshot)
+	if !ok {
+		return fmt.Errorf("gcounter: cannot apply snapshot of type %T", state)
+	}
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
+	g.counts = snapshot.Counts
+
 	if g.counts == nil {
 		g.counts = make(map[types.ReplicaId]uint64)
-	}
-
-	for id, v := range state.Counts {
-		if v > g.counts[id] {
-			g.counts[id] = v
-		}
 	}
 
 	return nil
@@ -106,10 +116,10 @@ func (g *GCounter) Marshal() ([]byte, error) {
 	return json.Marshal(g.GetSnapshotCounts())
 }
 
-func (g *GCounter) Unmarshal(data []byte) (GCounterSnapshot, error) {
+func (g *GCounter) Unmarshal(data []byte) (Snapshot, error) {
 	var snapshot GCounterSnapshot
 	err := json.Unmarshal(data, &snapshot)
 
-	return snapshot, err
+	return &snapshot, err
 
 }

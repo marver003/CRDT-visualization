@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net"
 
@@ -13,14 +14,14 @@ import (
 
 type serverGossip struct {
 	replication.UnimplementedReplicationServiceServer
-	counter *crdt.GCounter
+	crdt crdt.CRDT
 }
 
-func GossipServer(url string, counter *crdt.GCounter) {
+func GossipServer(url string, crdtInstance crdt.CRDT) {
 	log.Println("Create Gossip server")
 	grpcServer := grpc.NewServer()
 
-	gossipServer := NewGossipServer(counter)
+	gossipServer := NewGossipServer(crdtInstance)
 
 	replication.RegisterReplicationServiceServer(grpcServer, gossipServer)
 
@@ -36,21 +37,24 @@ func GossipServer(url string, counter *crdt.GCounter) {
 	}
 }
 
-func NewGossipServer(counter *crdt.GCounter) *serverGossip {
+func NewGossipServer(crdtInstance crdt.CRDT) *serverGossip {
 	return &serverGossip{
 		replication.UnimplementedReplicationServiceServer{},
-		counter,
+		crdtInstance,
 	}
 }
 
 func (s serverGossip) PushState(ctx context.Context, in *replication.PushStateRequest) (*emptypb.Empty, error) {
-	// GCounter
-	snapshot, err := s.counter.Unmarshal(in.State)
-
 	log.Printf("Received gossip request from CRDT ID: %v\n", in.CrdtId)
 
+	if in.CrdtType != string(s.crdt.Type()) {
+		return &emptypb.Empty{}, fmt.Errorf("crdt type mismatch: got %q, expected %q", in.CrdtType, s.crdt.Type())
+	}
+
+	snapshot, err := s.crdt.Unmarshal(in.State)
+
 	if err == nil {
-		s.counter.Merge(&snapshot)
+		s.crdt.Merge(snapshot)
 	}
 
 	return &emptypb.Empty{}, err

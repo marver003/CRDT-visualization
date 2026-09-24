@@ -9,11 +9,15 @@ import (
 )
 
 type Store struct {
-	Nodes map[types.ReplicaId]*node.Node
+	Nodes    map[types.ReplicaId]*node.Node
+	CrdtType types.CrdtType
 }
 
-func NewStore() *Store {
-	return &Store{make(map[types.ReplicaId]*node.Node)}
+func NewStore(crdtType types.CrdtType) *Store {
+	return &Store{
+		Nodes:    make(map[types.ReplicaId]*node.Node),
+		CrdtType: crdtType,
+	}
 }
 
 func (s *Store) CreateNode(id types.ReplicaId) error {
@@ -22,14 +26,29 @@ func (s *Store) CreateNode(id types.ReplicaId) error {
 		return fmt.Errorf("node %q already exists", id)
 	}
 
-	s.Nodes[id] = node.CreateSimNode(id)
+	n, err := node.CreateSimNode(id, s.CrdtType)
+	if err != nil {
+		return err
+	}
+
+	s.Nodes[id] = n
 
 	return nil
 }
 
-func (s *Store) CreateNodeWithSnapshot(id types.ReplicaId, snapshot crdt.GCounterSnapshot) {
-	s.Nodes[id] = node.CreateSimNode(id)
-	s.Nodes[id].Counter.ApplySnapshot(snapshot)
+func (s *Store) CreateNodeWithSnapshot(id types.ReplicaId, snapshot crdt.Snapshot) error {
+	n, err := node.CreateSimNode(id, s.CrdtType)
+	if err != nil {
+		return err
+	}
+
+	if err := n.Crdt.ApplySnapshot(snapshot); err != nil {
+		return err
+	}
+
+	s.Nodes[id] = n
+
+	return nil
 }
 
 func (s *Store) RemoveNode(id types.ReplicaId) error {
@@ -42,38 +61,53 @@ func (s *Store) RemoveNode(id types.ReplicaId) error {
 	return nil
 }
 
-func (s *Store) GetState() map[types.ReplicaId]map[types.ReplicaId]uint64 {
+// GetState returns the state of every gcounter node
+func (s *Store) GetState() (map[types.ReplicaId]map[types.ReplicaId]uint64, error) {
 	state := make(map[types.ReplicaId]map[types.ReplicaId]uint64, len(s.Nodes))
 
 	for id, node := range s.Nodes {
-		state[id] = node.Counter.GetSnapshotCounts().Counts
+		gcounter, ok := node.Crdt.(*crdt.GCounter)
+		if !ok {
+			return nil, fmt.Errorf("state is only supported for %q, simulator runs %q", types.GCounterType, s.CrdtType)
+		}
+
+		state[id] = gcounter.GetSnapshotCounts().Counts
 	}
 
-	return state
+	return state, nil
 }
 
-func (s *Store) IncrementNodeCounter(id types.ReplicaId) (crdt.GCounterSnapshot, error) {
-	if _, exists := s.Nodes[id]; !exists {
-		return crdt.GCounterSnapshot{}, fmt.Errorf("node %q does not exist", id)
+// IncrementNodeCounter increments gcounter and returns its snapshot
+func (s *Store) IncrementNodeCounter(id types.ReplicaId) (crdt.Snapshot, error) {
+	n, exists := s.Nodes[id]
+	if !exists {
+		return nil, fmt.Errorf("node %q does not exist", id)
 	}
 
-	s.Nodes[id].Counter.Increment()
+	if err := n.Increment(); err != nil {
+		return nil, err
+	}
 
-	return s.Nodes[id].Counter.GetSnapshot(), nil
+	return n.Crdt.GetSnapshot(), nil
 }
 
-func (s *Store) MergeNodeStates(sourceId, targetId types.ReplicaId) (crdt.GCounterSnapshot, error) {
-	if _, exists := s.Nodes[sourceId]; !exists {
-		return crdt.GCounterSnapshot{}, fmt.Errorf("source node %q does not exist", sourceId)
+// MergeNodeStates merges source state into target state
+func (s *Store) MergeNodeStates(sourceId, targetId types.ReplicaId) (crdt.Snapshot, error) {
+	source, exists := s.Nodes[sourceId]
+	if !exists {
+		return nil, fmt.Errorf("source node %q does not exist", sourceId)
 	}
 
-	if _, exists := s.Nodes[targetId]; !exists {
-		return crdt.GCounterSnapshot{}, fmt.Errorf("target node %q does not exist", targetId)
+	target, exists := s.Nodes[targetId]
+	if !exists {
+		return nil, fmt.Errorf("target node %q does not exist", targetId)
 	}
 
-	SourceCounterSnapshot := s.Nodes[sourceId].Counter.GetSnapshot()
+	if source.Crdt.Type() != target.Crdt.Type() {
+		return nil, fmt.Errorf("cannot merge %q into %q", source.Crdt.Type(), target.Crdt.Type())
+	}
 
-	s.Nodes[targetId].Counter.Merge(&SourceCounterSnapshot)
+	target.Crdt.Merge(source.Crdt.GetSnapshot())
 
-	return s.Nodes[targetId].Counter.GetSnapshot(), nil
+	return target.Crdt.GetSnapshot(), nil
 }

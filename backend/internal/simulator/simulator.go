@@ -13,9 +13,9 @@ type Simulator struct {
 	ExecutingStepId types.StepId
 }
 
-func New() *Simulator {
+func New(crdtType types.CrdtType) *Simulator {
 	return &Simulator{
-		Store:           NewStore(),
+		Store:           NewStore(crdtType),
 		PendingMessages: make(map[string]*Message),
 		Queue:           NewQueue(),
 		NextStepId:      1,
@@ -41,12 +41,14 @@ func (s *Simulator) Step() {
 	s.ExecutingStepId++
 }
 
-func (s *Simulator) Load(snapshots map[types.ReplicaId]crdt.GCounterSnapshot) *Simulator {
-	s = New()
+func Load(crdtType types.CrdtType, snapshots map[types.ReplicaId]crdt.Snapshot) (*Simulator, error) {
+	s := New(crdtType)
 
 	for replicaId, snapshot := range snapshots {
-		s.Store.CreateNodeWithSnapshot(replicaId, snapshot)
+		if err := s.Store.CreateNodeWithSnapshot(replicaId, snapshot); err != nil {
+			return nil, err
+		}
 	}
 
-	return s
+	return s, nil
 }

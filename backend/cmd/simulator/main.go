@@ -5,52 +5,45 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 
+	"github.com/marver003/crdt/internal/config"
 	"github.com/marver003/crdt/internal/simulator"
 	simhttp "github.com/marver003/crdt/internal/transport/http/simulator"
 )
 
-func ParseFlags() (int, error) {
-	var httpPort int
-
-	flag.IntVar(&httpPort, "phttp", 8080, "The port used for HTTP server of simulator")
-
-	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options]\n\n", os.Args[0])
-		fmt.Fprintln(os.Stderr, "Options:")
-		flag.PrintDefaults()
+func loadConfig(path string) (*config.Simulator, error) {
+	if path == "" {
+		return config.DefaultSimulator(), nil
 	}
 
-	flag.Parse()
-
-	if httpPort < 1 || httpPort > 65535 {
-		return 0, fmt.Errorf("-phttp must be between 1 and 65535")
-	}
-
-	return httpPort, nil
+	return config.LoadSimulator(path)
 }
 
 func main() {
+	configPath := flag.String("config", "", "Path to the simulator YAML config. Starts an empty simulator when omitted.")
+	flag.Parse()
 
-	httpPort, err := ParseFlags()
-
+	cfg, err := loadConfig(*configPath)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("config: %v", err)
 	}
 
-	httpAddr := fmt.Sprintf(":%d", httpPort)
+	snapshots, err := cfg.Snapshots()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
 
-	sim := simulator.New()
+	sim, err := simulator.Load(cfg.Simulator.Crdt, snapshots)
+	if err != nil {
+		log.Fatalf("simulator: %v", err)
+	}
+
 	handler := simhttp.NewHandler(sim)
 	router := simhttp.NewRouter(handler)
 
-	log.Printf("Simulator API listening on %d", httpPort)
+	log.Printf("Simulator (%s, %d nodes) API listening on %d", cfg.Simulator.Crdt, len(snapshots), cfg.Simulator.Port)
 
-	//go grpc.GossipServer(grpcAddr, node.Counter)
-	//go node.GossipService.Gossip()
-
-	if err := http.ListenAndServe(httpAddr, router); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Simulator.Port), router); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

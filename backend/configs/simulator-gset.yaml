@@ -1,0 +1,40 @@
+mode: simulator
+
+simulator:
+  port: 8080
+  crdt: gset
+
+  nodes:
+    - id: A
+      state:
+        - user_1024
+        - user_2048
+        - user_4096
+        - user_8192
+
+    - id: B
+      state:
+        - user_1024
+        - user_7111
+        - user_4096
+        - user_3555
+
+    - id: C
+      state:
+        - user_2048
+        - user_7111
+        - user_5432
+
+    - id: D
+      state:
+        - user_1024
+        - user_4096
+        - user_5432
+        - user_6796
+
+    - id: E
+      state:
+        - user_2048
+        - user_7111
+        - user_3555
+        - user_6796

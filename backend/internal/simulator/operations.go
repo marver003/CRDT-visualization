@@ -46,16 +46,16 @@ func (op RemoveNodeOperation) Execute(sim *Simulator) error {
 }
 
 func (op IncrementOperation) Execute(sim *Simulator) error {
-	sim.Store.IncrementNodeCounter(op.ReplicaId) // returns (crdt.GCounterSnapshot, error)
+	_, err := sim.Store.IncrementNodeCounter(op.ReplicaId)
 
-	return nil
+	return err
 }
 
 func (op SendGossipMessageOperation) Execute(sim *Simulator) error {
 
-	state := sim.Store.Nodes[op.From].Counter.GetSnapshot()
+	state := sim.Store.Nodes[op.From].Crdt.GetSnapshot()
 
-	sim.EditMessage(op.Message.Id, &state)
+	sim.EditMessage(op.Message.Id, state)
 
 	return nil
 }
@@ -64,7 +64,7 @@ func (op ReceiveGossipMessageOperation) Execute(sim *Simulator) error {
 
 	node := sim.Store.Nodes[op.Message.To]
 
-	node.Counter.Merge(op.Message.State)
+	node.Crdt.Merge(op.Message.State)
 
 	sim.RemovePendingMessage(op.Message.Id)
 

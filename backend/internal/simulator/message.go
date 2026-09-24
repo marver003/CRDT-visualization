@@ -10,10 +10,10 @@ type Message struct {
 	Id    string
 	From  types.ReplicaId
 	To    types.ReplicaId
-	State *crdt.GCounterSnapshot
+	State crdt.Snapshot
 }
 
-func (s *Simulator) NewMessage(from, to types.ReplicaId, state *crdt.GCounterSnapshot) string {
+func (s *Simulator) NewMessage(from, to types.ReplicaId, state crdt.Snapshot) string {
 	messageId := uuid.NewString()
 
 	s.PendingMessages[messageId] = &Message{
@@ -27,12 +27,12 @@ func (s *Simulator) NewMessage(from, to types.ReplicaId, state *crdt.GCounterSna
 
 }
 
-func (s *Simulator) EditMessage(id string, state *crdt.GCounterSnapshot) {
+func (s *Simulator) EditMessage(id string, stateSnapshot crdt.Snapshot) {
 	msg, ok := s.PendingMessages[id]
 	if !ok {
 		return
 	}
-	msg.State = state
+	msg.State = stateSnapshot
 	s.PendingMessages[id] = msg
 }
 

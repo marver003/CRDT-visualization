@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/marver003/crdt/internal/crdt"
 	"github.com/marver003/crdt/internal/node"
 	"github.com/marver003/crdt/internal/transport/http/helper"
 	"github.com/marver003/crdt/internal/types"
@@ -28,22 +29,26 @@ func NewHandler(n *node.Node) *Handler {
 
 // GetReplicaState handles GET /replicaState
 func (h *Handler) GetReplicaState(w http.ResponseWriter, r *http.Request) {
-	snapshot := h.Node.ListSnapshot()
-
-	replInfo := replicaInfo{
-		Id:     h.Node.Id,
-		Value:  snapshot.Value,
-		Counts: snapshot.Counts,
-	}
-
-	helper.WriteJSON(w, http.StatusOK, replInfo)
+	h.writeReplicaInfo(w)
 }
 
 // IncrementReplica handles POST /increment
 func (h *Handler) IncrementReplica(w http.ResponseWriter, r *http.Request) {
-	h.Node.Increment()
+	if err := h.Node.Increment(); err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
-	snapshot := h.Node.ListSnapshot()
+	h.writeReplicaInfo(w)
+}
+
+func (h *Handler) writeReplicaInfo(w http.ResponseWriter) {
+	snapshot, ok := h.Node.ListSnapshot().(*crdt.GCounterSnapshot)
+	if !ok {
+		helper.WriteError(w, http.StatusInternalServerError, "node is not a gcounter")
+		return
+	}
+
 	replInfo := replicaInfo{
 		Id:     h.Node.Id,
 		Value:  snapshot.Value,

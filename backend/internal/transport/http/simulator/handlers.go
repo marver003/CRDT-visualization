@@ -130,7 +130,11 @@ func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
-	state := h.Sim.Store.GetState()
+	state, err := h.Sim.Store.GetState()
+	if err != nil {
+		helper.WriteError(w, http.StatusNotImplemented, err.Error())
+		return
+	}
 
 	helper.WriteJSON(w, http.StatusOK, &respGetState{State: state})
 }
@@ -206,7 +210,7 @@ func (h *Handler) NextStep(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
-	h.Sim = simulator.New()
+	h.Sim = simulator.New(h.Sim.Store.CrdtType)
 
 	helper.WriteOkNoContent(w)
 }
@@ -220,16 +224,22 @@ func (h *Handler) Load(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snapshots := make(map[types.ReplicaId]crdt.GCounterSnapshot)
+	snapshots := make(map[types.ReplicaId]crdt.Snapshot)
 
 	for nodeId, state := range req.State {
-		snapshots[types.ReplicaId(nodeId)] = crdt.GCounterSnapshot{
+		snapshots[types.ReplicaId(nodeId)] = &crdt.GCounterSnapshot{
 			Counts: state,
 			Value:  0, // value is not important for applying the snapshot
 		}
 	}
 
-	h.Sim = h.Sim.Load(snapshots)
+	sim, err := simulator.Load(types.GCounterType, snapshots)
+	if err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	h.Sim = sim
 
 	helper.WriteOkNoContent(w)
 }
