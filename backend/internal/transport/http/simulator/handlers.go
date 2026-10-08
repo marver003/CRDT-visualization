@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/marver003/crdt/internal/crdt"
 	"github.com/marver003/crdt/internal/simulator"
 	"github.com/marver003/crdt/internal/transport/http/helper"
 	"github.com/marver003/crdt/internal/types"
@@ -211,35 +210,6 @@ func (h *Handler) NextStep(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 	h.Sim = simulator.New(h.Sim.Store.CrdtType)
-
-	helper.WriteOkNoContent(w)
-}
-
-func (h *Handler) Load(w http.ResponseWriter, r *http.Request) {
-
-	var req reqLoad
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		helper.WriteError(w, http.StatusBadRequest, "Invalid JSON request")
-		return
-	}
-
-	snapshots := make(map[types.ReplicaId]crdt.Snapshot)
-
-	for nodeId, state := range req.State {
-		snapshots[types.ReplicaId(nodeId)] = &crdt.GCounterSnapshot{
-			Counts: state,
-			Value:  0, // value is not important for applying the snapshot
-		}
-	}
-
-	sim, err := simulator.Load(types.GCounterType, snapshots)
-	if err != nil {
-		helper.WriteError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	h.Sim = sim
 
 	helper.WriteOkNoContent(w)
 }

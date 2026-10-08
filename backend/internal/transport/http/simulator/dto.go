@@ -32,5 +32,3 @@ type respStep struct {
 	From types.ReplicaId `json:"from,omitempty"`
 	To   types.ReplicaId `json:"to,omitempty"`
 }
-
-type reqLoad respGetState
