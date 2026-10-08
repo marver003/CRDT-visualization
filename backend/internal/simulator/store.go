@@ -111,3 +111,18 @@ func (s *Store) MergeNodeStates(sourceId, targetId types.ReplicaId) (crdt.Snapsh
 
 	return target.Crdt.GetSnapshot(), nil
 }
+
+// ReadNodeValue returns the gcounter value (sum of all counts) of a node
+func (s *Store) ReadNodeValue(id types.ReplicaId) (uint64, error) {
+	n, exists := s.Nodes[id]
+	if !exists {
+		return 0, fmt.Errorf("node %q does not exist", id)
+	}
+
+	gcounter, ok := n.Crdt.(*crdt.GCounter)
+	if !ok {
+		return 0, fmt.Errorf("read is only supported for %q, simulator runs %q", types.GCounterType, s.CrdtType)
+	}
+
+	return gcounter.Value(), nil
+}

@@ -24,14 +24,15 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 func registerRoutes(mux *http.ServeMux, h *Handler) {
 
-	mux.HandleFunc("POST /createNode", h.CreateNode)               // body should contain replicaId
-	mux.HandleFunc("DELETE /removeNode/{replicaId}", h.RemoveNode) // no body
-	mux.HandleFunc("GET /state", h.GetState)                       // state for everything
-	mux.HandleFunc("POST /increment", h.IncrementNode)             // body should contain replicaId
-	mux.HandleFunc("POST /merge", h.MergeNodes)                    // body should  contain sourceReplicaId and targetReplicaId
-	mux.HandleFunc("GET /steps", h.GetSteps)                       // no body
-	mux.HandleFunc("POST /step", h.NextStep)                       // no body
-	mux.HandleFunc("POST /reset", h.Reset)                         // no body
+	mux.HandleFunc("POST /createNode", h.locked(h.CreateNode))               // body should contain replicaId
+	mux.HandleFunc("DELETE /removeNode/{replicaId}", h.locked(h.RemoveNode)) // no body
+	mux.HandleFunc("GET /state", h.locked(h.GetState))                       // state for everything
+	mux.HandleFunc("POST /write", h.locked(h.WriteRequest))
+	mux.HandleFunc("POST /read", h.locked(h.ReadRequest))
+	mux.HandleFunc("POST /merge", h.locked(h.MergeNodes)) // body should  contain sourceReplicaId and targetReplicaId
+	mux.HandleFunc("GET /steps", h.locked(h.GetSteps))    // no body
+	mux.HandleFunc("POST /step", h.locked(h.NextStep))    // no body
+	mux.HandleFunc("POST /reset", h.locked(h.Reset))      // no body
 
 }
 

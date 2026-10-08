@@ -60,7 +60,7 @@ function applyView(stage: HTMLElement) {
 
 // State rendering
 async function renderState() {
-  const response = await getStateAPI<{ state: Record<string, Record<string, number>>; }>();
+  const response = await getStateAPI<SimulatorState>();
 
   if (!response) {
     return;
@@ -69,7 +69,10 @@ async function renderState() {
   const { state } = response;
   const network = createNetwork();
 
+  currentInFlight = response.inFlight ?? [];
+  currentNow = response.now;
   updateClientNodeOptions(Object.keys(state));
+  updateClientResults(response.clients ?? []);
 
   activeNetwork = network;
 
@@ -125,7 +128,7 @@ function layoutCircularNetwork(network: Network) {
   stage.style.height = `${size.height}px`;
   drawConnections(links, positions, size);
   setSvgSize(packets, size);
-  drawPendingPackets(network);
+  drawInFlightPackets(network);
 
   // First layout : start from a view that fits
   // the whole network in the container. After that the user's pan/zoom wins.
@@ -249,18 +252,6 @@ async function removeNode(nodeId: string | null) {
   notifyActionQueued();
 }
 
-async function incrementNode(nodeId: string | null) {
-  if (nodeId === null) {
-    return;
-  }
-
-  if (!await incrementNodeAPI(nodeId)) {
-    return;
-  }
-
-  notifyActionQueued();
-}
-
 // Pan & zoom interaction
 let isPanning = false;
 let panPointerId: number | null = null;
@@ -288,6 +279,7 @@ nodesContainer.addEventListener(
       y: cursorY + (view.y - cursorY) * ratio,
     };
     applyView(activeNetwork.stage);
+    redrawPacketsAfterViewChange();
   },
   { passive: false },
 );
@@ -314,6 +306,7 @@ nodesContainer.addEventListener("pointermove", (e) => {
     y: panViewStart.y + (e.clientY - panStart.y),
   };
   applyView(activeNetwork.stage);
+  redrawPacketsAfterViewChange();
 });
 
 function stopPanning(e: PointerEvent) {

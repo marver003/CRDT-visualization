@@ -109,3 +109,53 @@
     var(--panel-header) 4px 8px
   );
 }
+
+.time-graph-cell--merge {
+  background: #d8f2ef;
+  color: #087c79;
+  font-weight: 700;
+}
+
+.time-graph-cell--arrive {
+  padding: 0 8px;
+  background: #f4f0ff;
+  color: var(--purple);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.time-graph-cell--read {
+  background: #e3f7f6;
+  color: var(--teal);
+  font-weight: 700;
+}
+
+.time-graph-cell--ack {
+  padding: 0 8px;
+  background: #e5f5ec;
+  color: #2f9e5b;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.time-graph-cell--response {
+  padding: 0 8px;
+  background: #e5f5ec;
+  color: #2f9e5b;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.time-graph-cell--multi {
+  padding: 0;
+}
+
+.time-graph-cell--multi > span {
+  display: block;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.time-graph-row--client {
+  color: var(--purple);
+}

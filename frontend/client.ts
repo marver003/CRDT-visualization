@@ -1,6 +1,7 @@
-const CLIENT_COUNT = 2;
+const CLIENT_IDS = ["1", "2"];
 
 interface ClientView {
+  id: string;
   select: HTMLSelectElement;
   writeButton: HTMLButtonElement;
   readButton: HTMLButtonElement;
@@ -8,10 +9,12 @@ interface ClientView {
 }
 
 const clientViews: ClientView[] = [];
+const clientResults = new Map<string, ClientResult>();
 
-function createClient(index: number): HTMLElement {
+function createClient(id: string): HTMLElement {
   const client = document.createElement("div");
   client.className = "client";
+  client.dataset.clientId = id;
   client.innerHTML = `
     <svg class="client-figure" viewBox="0 0 60 100" aria-hidden="true">
       <circle cx="30" cy="16" r="11" />
@@ -22,8 +25,8 @@ function createClient(index: number): HTMLElement {
       <line x1="30" y1="62" x2="46" y2="92" />
     </svg>
     <div class="client-panel">
-      <strong class="client-title">Client ${index + 1}</strong>
-      <select class="client-select" aria-label="Node for client ${index + 1}"></select>
+      <strong class="client-title">Client ${id}</strong>
+      <select class="client-select" aria-label="Node for client ${id}"></select>
       <div class="client-actions">
         <button class="client-button client-write" type="button" title="Send a write (increment) request">Write</button>
         <button class="client-button client-read" type="button" title="Send a read request">Read</button>
@@ -33,73 +36,108 @@ function createClient(index: number): HTMLElement {
   `;
 
   const view: ClientView = {
+    id,
     select: client.querySelector(".client-select") as HTMLSelectElement,
     writeButton: client.querySelector(".client-write") as HTMLButtonElement,
     readButton: client.querySelector(".client-read") as HTMLButtonElement,
     result: client.querySelector(".client-result") as HTMLElement,
   };
 
-  view.writeButton.addEventListener("click", () => {
-    if (view.select.value) {
-      incrementNode(view.select.value);
-    }
-  });
-  view.readButton.addEventListener("click", () => readNode(view));
+  view.writeButton.addEventListener("click", () => sendClientRequest(view, writeAPI));
+  view.readButton.addEventListener("click", () => sendClientRequest(view, readAPI));
 
   clientViews.push(view);
   return client;
 }
 
-async function readNode(view: ClientView) {
-  const nodeId = view.select.value;
-
-  if (!nodeId) {
+async function sendClientRequest(
+  view: ClientView,
+  api: (clientId: string, nodeId: string) => Promise<Response | null>,
+) {
+  if (!view.select.value) {
     return;
   }
 
-  const response = await getStateAPI<{ state: Record<string, Record<string, number>>; }>();
-
-  if (!response) {
+  if (!await api(view.id, view.select.value)) {
     return;
   }
 
-  const counts = response.state[nodeId];
+  if (!isAdvancing) {
+    const knownMessages = currentInFlight;
 
-  if (!counts) {
-    view.result.textContent = `Node ${nodeId} no longer exists`;
-    return;
+    await renderState();
+    await nextFrame();
+    playSpawnAnimations(knownMessages);
   }
 
-  const sum = Object.values(counts).reduce((total, value) => total + value, 0);
-  view.result.textContent = `Node ${nodeId} = ${sum}`;
+  notifyActionQueued();
+}
+
+function updateClientResults(clients: ClientSnapshot[]) {
+  for (const client of clients) {
+    const view = clientViews.find((item) => item.id === client.id);
+    const result = client.result;
+
+    if (result) {
+      clientResults.set(client.id, result);
+    } else {
+      clientResults.delete(client.id);
+    }
+
+    if (!view) {
+      continue;
+    }
+
+    view.result.textContent = !result
+      ? ""
+      : result.kind === "write_ack"
+        ? `Ack from ${result.nodeId}`
+        : `Node ${result.nodeId} = ${result.value}`;
+  }
+}
+
+function getClientStagePoint(clientId: string): Point | null {
+  const client = document.querySelector<HTMLElement>(`.client[data-client-id="${clientId}"]`);
+
+  if (!client || !activeNetwork || !view) {
+    return null;
+  }
+
+  const clientRect = client.getBoundingClientRect();
+  const stageRect = activeNetwork.stage.getBoundingClientRect();
+
+  return {
+    x: (clientRect.right - stageRect.left) / view.scale,
+    y: (clientRect.top + clientRect.height / 2 - stageRect.top) / view.scale,
+  };
 }
 
 function updateClientNodeOptions(nodeIds: string[]) {
   const sorted = [...nodeIds].sort();
 
-  for (const view of clientViews) {
-    const previous = view.select.value;
+  for (const clientView of clientViews) {
+    const previous = clientView.select.value;
 
-    view.select.innerHTML = sorted
+    clientView.select.innerHTML = sorted
       .map((nodeId) => `<option value="${nodeId}">Node ${nodeId}</option>`)
       .join("");
 
     if (sorted.includes(previous)) {
-      view.select.value = previous;
+      clientView.select.value = previous;
     }
 
     const disabled = sorted.length === 0;
-    view.select.disabled = disabled;
-    view.writeButton.disabled = disabled;
-    view.readButton.disabled = disabled;
+    clientView.select.disabled = disabled;
+    clientView.writeButton.disabled = disabled;
+    clientView.readButton.disabled = disabled;
   }
 }
 
 const clientsContainer = document.getElementById("clients");
 
 if (clientsContainer) {
-  for (let i = 0; i < CLIENT_COUNT; i++) {
-    clientsContainer.appendChild(createClient(i));
+  for (const id of CLIENT_IDS) {
+    clientsContainer.appendChild(createClient(id));
   }
   updateClientNodeOptions([]);
 }

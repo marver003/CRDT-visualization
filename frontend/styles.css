@@ -347,6 +347,27 @@ button {
   pointer-events: none;
 }
 
+.node-network-packets,
+.node-network-links {
+  overflow: visible;
+}
+
+.node-network-packet--write_request {
+  fill: var(--purple);
+}
+
+.node-network-packet--write_ack {
+  fill: #2f9e5b;
+}
+
+.node-network-packet--read_request {
+  fill: var(--teal);
+}
+
+.node-network-packet--read_response {
+  fill: #e08a1e;
+}
+
 .node-network-packet {
   fill: var(--blue);
   stroke: #ffffff;

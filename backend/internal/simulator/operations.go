@@ -1,6 +1,18 @@
 package simulator
 
-import "github.com/marver003/crdt/internal/types"
+import (
+	"github.com/google/uuid"
+	"github.com/marver003/crdt/internal/types"
+)
+
+type RequestKind string
+
+const (
+	WriteRequest RequestKind = "write"
+	ReadRequest  RequestKind = "read"
+)
+
+const sendDelay types.StepId = 1
 
 type BaseOperation struct {
 	StepId types.StepId
@@ -16,19 +28,51 @@ type RemoveNodeOperation struct {
 	ReplicaId types.ReplicaId
 }
 
+type ReceiveRequestOperation struct {
+	BaseOperation
+	Message *Message
+}
+
 type IncrementOperation struct {
 	BaseOperation
 	ReplicaId types.ReplicaId
+	ClientId  types.ClientId
+	RequestId string
+}
+
+type ReadOperation struct {
+	BaseOperation
+	ReplicaId types.ReplicaId
+	ClientId  types.ClientId
+	RequestId string
+}
+
+type SendResponseOperation struct {
+	BaseOperation
+	ReplicaId types.ReplicaId
+	ClientId  types.ClientId
+	RequestId string
+	Kind      MessageKind
+	Value     uint64
+}
+
+type ReceiveResponseOperation struct {
+	BaseOperation
+	Message *Message
 }
 
 type SendGossipMessageOperation struct {
 	BaseOperation
-	From    types.ReplicaId
-	To      types.ReplicaId
-	Message *Message
+	From types.ReplicaId
+	To   types.ReplicaId
 }
 
 type ReceiveGossipMessageOperation struct {
+	BaseOperation
+	Message *Message
+}
+
+type MergeOperation struct {
 	BaseOperation
 	Message *Message
 }
@@ -45,28 +89,177 @@ func (op RemoveNodeOperation) Execute(sim *Simulator) error {
 	return sim.Store.RemoveNode(op.ReplicaId)
 }
 
-func (op IncrementOperation) Execute(sim *Simulator) error {
-	_, err := sim.Store.IncrementNodeCounter(op.ReplicaId)
+func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.ReplicaId, kind RequestKind) {
+	messageKind := WriteRequestMessage
+	if kind == ReadRequest {
+		messageKind = ReadRequestMessage
+	}
 
-	return err
+	deliverAt := s.Now + s.Timing.RequestLatency
+	msg := s.NewMessage(messageKind, ClientAt(clientId), NodeAt(replicaId), deliverAt)
+	msg.RequestId = uuid.NewString()
+
+	s.Queue.Enqueue(ReceiveRequestOperation{
+		BaseOperation: BaseOperation{StepId: deliverAt},
+		Message:       msg,
+	})
+}
+
+func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
+	sim.RemovePendingMessage(op.Message.Id)
+
+	replicaId := types.ReplicaId(op.Message.To.Id)
+	if _, ok := sim.Store.Nodes[replicaId]; !ok {
+		return nil
+	}
+
+	clientId := types.ClientId(op.Message.From.Id)
+	after := sim.After(sim.Timing.Processing)
+
+	if op.Message.Kind == ReadRequestMessage {
+		sim.Queue.Enqueue(ReadOperation{
+			BaseOperation: after,
+			ReplicaId:     replicaId,
+			ClientId:      clientId,
+			RequestId:     op.Message.RequestId,
+		})
+		return nil
+	}
+
+	sim.Queue.Enqueue(IncrementOperation{
+		BaseOperation: after,
+		ReplicaId:     replicaId,
+		ClientId:      clientId,
+		RequestId:     op.Message.RequestId,
+	})
+
+	return nil
+}
+
+func (op IncrementOperation) Execute(sim *Simulator) error {
+	if _, err := sim.Store.IncrementNodeCounter(op.ReplicaId); err != nil {
+		return err
+	}
+
+	if op.ClientId != "" {
+		sim.Queue.Enqueue(SendResponseOperation{
+			BaseOperation: sim.After(sendDelay),
+			ReplicaId:     op.ReplicaId,
+			ClientId:      op.ClientId,
+			RequestId:     op.RequestId,
+			Kind:          WriteAckMessage,
+		})
+	}
+
+	for id := range sim.Store.Nodes {
+		if id == op.ReplicaId {
+			continue
+		}
+
+		sim.Queue.Enqueue(SendGossipMessageOperation{
+			BaseOperation: sim.After(sendDelay),
+			From:          op.ReplicaId,
+			To:            id,
+		})
+	}
+
+	return nil
+}
+
+func (op ReadOperation) Execute(sim *Simulator) error {
+	value, err := sim.Store.ReadNodeValue(op.ReplicaId)
+	if err != nil {
+		return err
+	}
+
+	sim.Queue.Enqueue(SendResponseOperation{
+		BaseOperation: sim.After(sendDelay),
+		ReplicaId:     op.ReplicaId,
+		ClientId:      op.ClientId,
+		RequestId:     op.RequestId,
+		Kind:          ReadResponseMessage,
+		Value:         value,
+	})
+
+	return nil
+}
+
+func (op SendResponseOperation) Execute(sim *Simulator) error {
+	if _, ok := sim.Store.Nodes[op.ReplicaId]; !ok {
+		return nil
+	}
+
+	deliverAt := sim.Now + sim.Timing.ResponseLatency
+	msg := sim.NewMessage(op.Kind, NodeAt(op.ReplicaId), ClientAt(op.ClientId), deliverAt)
+	msg.RequestId = op.RequestId
+	msg.Value = op.Value
+
+	sim.Queue.Enqueue(ReceiveResponseOperation{
+		BaseOperation: BaseOperation{StepId: deliverAt},
+		Message:       msg,
+	})
+
+	return nil
+}
+
+func (op ReceiveResponseOperation) Execute(sim *Simulator) error {
+	sim.RemovePendingMessage(op.Message.Id)
+
+	client, ok := sim.Clients[types.ClientId(op.Message.To.Id)]
+	if !ok {
+		return nil
+	}
+
+	client.LastResult = &ClientResult{
+		Kind:      op.Message.Kind,
+		ReplicaId: types.ReplicaId(op.Message.From.Id),
+		Value:     op.Message.Value,
+		At:        sim.Now,
+	}
+
+	return nil
 }
 
 func (op SendGossipMessageOperation) Execute(sim *Simulator) error {
+	from, ok := sim.Store.Nodes[op.From]
+	if !ok {
+		return nil
+	}
 
-	state := sim.Store.Nodes[op.From].Crdt.GetSnapshot()
+	deliverAt := sim.Now + sim.Timing.GossipLatency
+	msg := sim.NewMessage(GossipMessage, NodeAt(op.From), NodeAt(op.To), deliverAt)
+	msg.State = from.Crdt.GetSnapshot()
 
-	sim.EditMessage(op.Message.Id, state)
+	sim.Queue.Enqueue(ReceiveGossipMessageOperation{
+		BaseOperation: BaseOperation{StepId: deliverAt},
+		Message:       msg,
+	})
 
 	return nil
 }
 
 func (op ReceiveGossipMessageOperation) Execute(sim *Simulator) error {
+	sim.RemovePendingMessage(op.Message.Id)
 
-	node := sim.Store.Nodes[op.Message.To]
+	if _, ok := sim.Store.Nodes[types.ReplicaId(op.Message.To.Id)]; !ok {
+		return nil
+	}
+
+	sim.Queue.Enqueue(MergeOperation{
+		BaseOperation: sim.After(sim.Timing.Merge),
+		Message:       op.Message,
+	})
+
+	return nil
+}
+
+func (op MergeOperation) Execute(sim *Simulator) error {
+	node, ok := sim.Store.Nodes[types.ReplicaId(op.Message.To.Id)]
+	if !ok {
+		return nil
+	}
 
 	node.Crdt.Merge(op.Message.State)
-
-	sim.RemovePendingMessage(op.Message.Id)
 
 	return nil
 }

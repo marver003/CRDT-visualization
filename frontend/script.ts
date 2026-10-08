@@ -11,7 +11,6 @@ async function reset() {
 
   resetNetworkView();
   resetTimeGraph();
-  clearPendingPackets();
   await renderState();
 }
 

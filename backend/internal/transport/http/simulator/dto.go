@@ -6,8 +6,9 @@ type reqCreateNode struct {
 	Id types.ReplicaId `json:"id"`
 }
 
-type reqIncrementNode struct {
-	Id types.ReplicaId `json:"id"`
+type reqClientRequest struct {
+	ClientId types.ClientId  `json:"clientId"`
+	NodeId   types.ReplicaId `json:"nodeId"`
 }
 
 type reqMergeNodes struct {
@@ -16,7 +17,36 @@ type reqMergeNodes struct {
 }
 
 type respGetState struct {
-	State map[types.ReplicaId]map[types.ReplicaId]uint64 `json:"state"`
+	Now      types.StepId                                   `json:"now"`
+	State    map[types.ReplicaId]map[types.ReplicaId]uint64 `json:"state"`
+	Clients  []respClient                                   `json:"clients"`
+	InFlight []respMessage                                  `json:"inFlight"`
+}
+
+type respClient struct {
+	Id     types.ClientId    `json:"id"`
+	Result *respClientResult `json:"result"`
+}
+
+type respClientResult struct {
+	Kind   string          `json:"kind"`
+	NodeId types.ReplicaId `json:"nodeId"`
+	Value  uint64          `json:"value"`
+	At     types.StepId    `json:"at"`
+}
+
+type respEndpoint struct {
+	Kind string `json:"kind"`
+	Id   string `json:"id"`
+}
+
+type respMessage struct {
+	Id        string       `json:"id"`
+	Kind      string       `json:"kind"`
+	From      respEndpoint `json:"from"`
+	To        respEndpoint `json:"to"`
+	SentAt    types.StepId `json:"sentAt"`
+	DeliverAt types.StepId `json:"deliverAt"`
 }
 
 type respGetSteps struct {
@@ -28,6 +58,7 @@ type respStep struct {
 	Type   string       `json:"type"`
 
 	ReplicaId types.ReplicaId `json:"replicaId,omitempty"`
+	ClientId  types.ClientId  `json:"clientId,omitempty"`
 
 	From types.ReplicaId `json:"from,omitempty"`
 	To   types.ReplicaId `json:"to,omitempty"`

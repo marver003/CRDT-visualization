@@ -94,3 +94,8 @@
   font-size: 15px;
   font-weight: 700;
 }
+
+.client--receiving .client-panel {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 4px rgb(21 155 152 / 16%);
+}

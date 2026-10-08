@@ -58,16 +58,25 @@ async function removeNodeAPI(replicaId: string) {
   });
 }
 
-async function incrementNodeAPI(replicaId: string) {
-  return requestAPI("/increment", {
+async function clientRequestAPI(path: "/write" | "/read", clientId: string, nodeId: string) {
+  return requestAPI(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      id: replicaId,
+      clientId,
+      nodeId,
     }),
   });
+}
+
+async function writeAPI(clientId: string, nodeId: string) {
+  return clientRequestAPI("/write", clientId, nodeId);
+}
+
+async function readAPI(clientId: string, nodeId: string) {
+  return clientRequestAPI("/read", clientId, nodeId);
 }
 
 async function mergeNodesAPI(fromReplicaId: string, toReplicaId: string) {

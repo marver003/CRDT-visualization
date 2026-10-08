@@ -22,3 +22,7 @@ func (q *StepQueue) Dequeue(stepId types.StepId) []Operation {
 
 	return operations
 }
+
+func (q *StepQueue) Empty() bool {
+	return len(q.Operations) == 0
+}

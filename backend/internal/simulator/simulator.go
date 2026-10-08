@@ -5,40 +5,53 @@ import (
 	"github.com/marver003/crdt/internal/types"
 )
 
+type Timing struct {
+	RequestLatency  types.StepId
+	ResponseLatency types.StepId
+	Processing      types.StepId
+	GossipLatency   types.StepId
+	Merge           types.StepId
+}
+
+func DefaultTiming() Timing {
+	return Timing{
+		RequestLatency:  1,
+		ResponseLatency: 1,
+		Processing:      1,
+		GossipLatency:   1,
+		Merge:           1,
+	}
+}
+
 type Simulator struct {
 	Store           *Store
+	Clients         map[types.ClientId]*Client
 	PendingMessages map[string]*Message
 	Queue           *StepQueue
-	NextStepId      types.StepId
-	ExecutingStepId types.StepId
+	Timing          Timing
+	Now             types.StepId
 }
 
 func New(crdtType types.CrdtType) *Simulator {
 	return &Simulator{
 		Store:           NewStore(crdtType),
+		Clients:         newClients(),
 		PendingMessages: make(map[string]*Message),
 		Queue:           NewQueue(),
-		NextStepId:      1,
-		ExecutingStepId: 1,
+		Timing:          DefaultTiming(),
 	}
 }
 
-// GetNextStepId returns step ID value before it was incremented
-func (s *Simulator) GetNextStepId() types.StepId {
-	stepId := s.NextStepId
-	s.NextStepId++
-
-	return stepId
+func (s *Simulator) After(delay types.StepId) BaseOperation {
+	return BaseOperation{StepId: s.Now + delay}
 }
 
 func (s *Simulator) Step() {
-	ops := s.Queue.Dequeue(s.ExecutingStepId)
+	s.Now++
 
-	for _, op := range ops {
+	for _, op := range s.Queue.Dequeue(s.Now) {
 		op.Execute(s)
 	}
-
-	s.ExecutingStepId++
 }
 
 func Load(crdtType types.CrdtType, snapshots map[types.ReplicaId]crdt.Snapshot) (*Simulator, error) {
