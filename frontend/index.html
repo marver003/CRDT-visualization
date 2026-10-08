@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="node-card.css" />
     <link rel="stylesheet" href="error-popup.css" />
     <link rel="stylesheet" href="time-graph.css" />
+    <link rel="stylesheet" href="client.css" />
     <script src="dist/script.js" defer></script>
   </head>
 
@@ -15,66 +16,92 @@
     <div class="app">
       <header class="header">
         <h1>G-Counter Simulator</h1>
-        <div class="header-actions">
-            <input id="load-file-input" type="file" accept=".json" hidden>
-            <button id="load-button" class="btn btn-secondary btn-load">
-              <span class="load-icon">&#x2913;</span>
-              Load State
-            </button>
-            <button class="btn btn-refresh">
-              <span class="refresh-icon">&#x21BB;</span>
-              Refresh
-            </button>
+        <div class="header-controls">
+          <!-- Drives how/when the pending step queue drains: Manual leaves it
+               to "Next Step" clicks, Auto-play drains continuously at the
+               chosen speed. See step-control.ts / timing.ts. -->
+          <div class="step-control" role="group" aria-label="Step controls">
+            <div class="step-mode-toggle" role="radiogroup" aria-label="Step mode">
+              <button type="button" class="step-mode-btn" data-mode="manual" role="radio" aria-checked="true">
+                Manual
+              </button>
+              <button type="button" class="step-mode-btn" data-mode="auto" role="radio" aria-checked="false">
+                Auto-play
+              </button>
+            </div>
+
+            <div id="step-manual-controls" class="step-manual-controls">
+              <button id="next-step-button" type="button" class="btn btn-secondary step-btn step-next-button">
+                Next Step
+              </button>
+            </div>
+
+            <div id="step-auto-controls" class="step-auto-controls" hidden>
+              <button
+                id="play-pause-button"
+                type="button"
+                class="btn btn-secondary step-btn step-play-button"
+                aria-label="Pause"
+              >
+                <span id="play-pause-icon" aria-hidden="true">&#9616;&#9616;</span>
+                <span id="play-pause-label">Pause</span>
+              </button>
+              <select id="speed-select" class="step-speed-select" aria-label="Auto-play speed">
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="2">2x</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="header-actions">
+            <div class="create-node-menu">
+              <button
+                id="create-node-toggle"
+                class="btn btn-secondary create-node-toggle"
+                type="button"
+                aria-label="Create node"
+                aria-expanded="false"
+                aria-controls="create-node-popup"
+                title="Create node"
+              >
+                +
+              </button>
+              <div id="create-node-popup" class="create-node-popup" hidden>
+                <label for="replica-id">Node name</label>
+                <div class="create-node-popup-row">
+                  <input
+                    id="replica-id"
+                    type="text"
+                    maxlength="1"
+                    pattern="[A-Z]"
+                    placeholder="A"
+                    autocomplete="off"
+                  />
+                  <button
+                    class="btn btn-primary create-node-button"
+                    type="button"
+                    aria-label="Add node"
+                    title="Add node"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
             <button id="reset-button" class="btn btn-secondary">
               Reset Simulation
             </button>
           </div>
+        </div>
       </header>
 
       <main class="layout">
         <section class="nodes-view">
           <div class="nodes-content" id="nodes-container"></div>
 
-          <!-- Only surviving piece of the old Controls panel. Everything else
-               (Existing Nodes list, Merge Nodes) was dropped when the Nodes
-               View became the whole page - see CLAUDE.md for the plan. -->
-          <div class="section create-node-section create-node-widget">
-            <h3>Create Node</h3>
+          <div class="clients" id="clients"></div>
 
-            <p class="create-node-description">
-              Add a replica to the counter network.
-            </p>
-
-            <div class="create-node-field">
-              <div class="create-node-input-wrap">
-                <label for="replica-id">Replica ID</label>
-                <input
-                  id="replica-id"
-                  type="text"
-                  maxlength="1"
-                  pattern="[A-Z]"
-                  placeholder="A"
-                  aria-describedby="replica-id-help"
-                />
-              </div>
-              <button
-                class="btn btn-primary create-node-button"
-                type="button"
-                aria-label="Add node"
-                title="Add node"
-              >
-                <span aria-hidden="true">+</span>
-              </button>
-            </div>
-            <small id="replica-id-help" class="create-node-help">
-              Choose one letter, for example A.
-            </small>
-          </div>
-
-          <!-- Replication timeline: rows = replicas, columns = executed steps,
-               loosely modeled on the Raft "servers x time" diagram. Replaces
-               the old text-based Step Queue log. Built up client-side in
-               time-graph.ts, since the backend only exposes pending steps. -->
           <div class="time-graph-widget">
             <h3 class="time-graph-title">Replication Timeline</h3>
             <div class="time-graph-scroll" id="time-graph-container">
@@ -102,10 +129,13 @@
 
         <script src="dist/error-popup.js"></script>
         <script src="dist/api.js"></script>
+        <script src="dist/timing.js"></script>
         <script src="dist/node-card.js"></script>
         <script src="dist/nodes.js"></script>
+        <script src="dist/client.js"></script>
         <script src="dist/time-graph.js"></script>
         <script src="dist/steps.js"></script>
+        <script src="dist/step-control.js"></script>
       </main>
     </div>
   </body>

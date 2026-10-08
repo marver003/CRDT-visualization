@@ -1,30 +1,20 @@
-// Replication timeline widget - a lightweight visual history of executed
-// steps, loosely modeled on the classic Raft "servers x time" diagram: one
-// row per replica, one column per executed step, each cell showing what
-// happened to that replica at that step. This replaces the old text-based
-// Step Queue log.
-//
-// The history is kept client-side only. The backend's /steps endpoint only
-// ever returns the *pending* queue - once a step executes it's dequeued and
-// gone, so there's no server-side log of what already happened. Each entry
-// here is recorded by steps.ts right after it successfully executes a step.
-
-type TimeGraphKind = "create" | "increment" | "remove" | "receive";
+type TimeGraphKind = "create" | "increment" | "remove" | "send" | "receive";
 
 type TimeGraphEntry = {
   step: number;
   nodeId: string;
   kind: TimeGraphKind;
   value?: number;
+  targets?: string[];
+  broadcast?: boolean;
 };
 
-// What one operation contributes to a batch - same shape as TimeGraphEntry
-// minus `step`, since every operation in a batch shares one column (see
-// recordTimeGraphBatch).
 type TimeGraphOperation = {
   nodeId: string;
   kind: TimeGraphKind;
   value?: number;
+  targets?: string[];
+  broadcast?: boolean;
 };
 
 const timeGraphContainer = document.getElementById("time-graph-container") as HTMLElement;
@@ -40,9 +30,6 @@ function resetTimeGraph() {
   renderTimeGraph();
 }
 
-// Records a whole batch of operations that share one backend StepID as a
-// single column, so they render as simultaneous - one shared step number for
-// all of them, instead of a step per operation.
 function recordTimeGraphBatch(operations: TimeGraphOperation[]) {
   if (operations.length === 0) {
     return;
@@ -50,12 +37,12 @@ function recordTimeGraphBatch(operations: TimeGraphOperation[]) {
 
   timeGraphStepCount += 1;
 
-  for (const { nodeId, kind, value } of operations) {
-    if (!timeGraphRows.includes(nodeId)) {
-      timeGraphRows.push(nodeId);
+  for (const operation of operations) {
+    if (!timeGraphRows.includes(operation.nodeId)) {
+      timeGraphRows.push(operation.nodeId);
     }
 
-    timeGraphEntries.push({ step: timeGraphStepCount, nodeId, kind, value });
+    timeGraphEntries.push({ step: timeGraphStepCount, ...operation });
   }
 
   renderTimeGraph();
@@ -119,7 +106,14 @@ function renderTimeGraph() {
 
       if (entry) {
         td.classList.add(`time-graph-cell--${entry.kind}`);
-        td.textContent = entry.kind === "remove" ? "×" : entry.value !== undefined ? `${entry.value}` : "";
+        td.textContent =
+          entry.kind === "remove" ? "×" :
+          entry.kind === "send" ? sendLabel(entry) :
+          entry.value !== undefined ? `${entry.value}` : "";
+
+        if (entry.kind === "send" && entry.targets) {
+          td.title = `Sent to ${entry.targets.join(", ")}`;
+        }
       } else if (
         (firstStep !== undefined && step < firstStep) ||
         (lastStep !== undefined && step > lastStep)
@@ -136,4 +130,12 @@ function renderTimeGraph() {
   table.appendChild(tbody);
   timeGraphContainer.replaceChildren(table);
   timeGraphContainer.scrollLeft = timeGraphContainer.scrollWidth;
+}
+
+function sendLabel(entry: TimeGraphEntry): string {
+  if (entry.broadcast) {
+    return "→all";
+  }
+
+  return `→${(entry.targets ?? []).join("")}`;
 }

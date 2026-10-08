@@ -9,18 +9,19 @@ const MINIMUM_RADIUS = 160;
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 
 // DOM references
-const createNodeButton = document.querySelector(".btn-primary") as HTMLButtonElement;
+const createNodeButton = document.querySelector(".create-node-button") as HTMLButtonElement;
+const createNodeToggle = document.getElementById("create-node-toggle") as HTMLButtonElement;
+const createNodePopup = document.getElementById("create-node-popup") as HTMLElement;
+const replicaIdField = document.getElementById("replica-id") as HTMLInputElement;
 const nodesContainer = document.getElementById("nodes-container") as HTMLElement;
 
 let activeNetwork: Network | null = null;
 
-// Pan & zoom. `view` is null until the network has been laid out once, at
-// which point it's set to a view that fits the network in the container;
-// from then on it's fully user-controlled (wheel to zoom, drag to pan) and
-// persists across re-renders so routine actions (increment, merge, step...)
-// don't reset the camera. Call resetNetworkView() to drop back to the fit.
 let view: ViewTransform | null = null;
 const MIN_SCALE = 0.3;
+const FIT_MARGIN = 20;
+const INITIAL_MAX_SCALE = 1.3;
+const INITIAL_ZOOM_FACTOR = 1.6;
 const MAX_SCALE = 3;
 
 function resetNetworkView() {
@@ -34,14 +35,20 @@ function clamp(value: number, min: number, max: number) {
 function getFittedView(size: Size): ViewTransform {
   const containerW = nodesContainer.clientWidth;
   const containerH = nodesContainer.clientHeight;
-  const scale =
+  const clients = document.getElementById("clients");
+  const timeline = document.querySelector<HTMLElement>(".time-graph-widget");
+  const left = clients ? clients.offsetLeft + clients.offsetWidth + FIT_MARGIN : 0;
+  const right = timeline ? timeline.offsetWidth + FIT_MARGIN : 0;
+  const availableW = Math.max(containerW - left - right, size.width * MIN_SCALE);
+  const fitScale =
     containerW > 0 && containerH > 0
-      ? Math.min(1, containerW / size.width, containerH / size.height)
+      ? Math.min(INITIAL_MAX_SCALE, availableW / size.width, containerH / size.height)
       : 1;
+  const scale = Math.min(MAX_SCALE, fitScale * INITIAL_ZOOM_FACTOR);
 
   return {
     scale,
-    x: (containerW - size.width * scale) / 2,
+    x: left + (availableW - size.width * scale) / 2,
     y: (containerH - size.height * scale) / 2,
   };
 }
@@ -61,6 +68,8 @@ async function renderState() {
 
   const { state } = response;
   const network = createNetwork();
+
+  updateClientNodeOptions(Object.keys(state));
 
   activeNetwork = network;
 
@@ -87,17 +96,23 @@ function createNetwork(): Network {
 
   const links = document.createElementNS(SVG_NAMESPACE, "svg");
   links.classList.add("node-network-links");
-  stage.appendChild(links);
+
+  const packets = document.createElementNS(SVG_NAMESPACE, "svg");
+  packets.classList.add("node-network-packets");
+
+  stage.append(links, packets);
   nodesContainer.appendChild(stage);
 
   return { stage, cards: [] };
 }
 
 // Circular network layout
-function layoutCircularNetwork({ stage, cards }: Network) {
+function layoutCircularNetwork(network: Network) {
+  const { stage, cards } = network;
   const links = stage.querySelector<SVGSVGElement>(".node-network-links");
+  const packets = stage.querySelector<SVGSVGElement>(".node-network-packets");
 
-  if (!links || cards.length === 0) {
+  if (!links || !packets || cards.length === 0) {
     return;
   }
 
@@ -109,8 +124,10 @@ function layoutCircularNetwork({ stage, cards }: Network) {
   stage.style.width = `${size.width}px`;
   stage.style.height = `${size.height}px`;
   drawConnections(links, positions, size);
+  setSvgSize(packets, size);
+  drawPendingPackets(network);
 
-  // First layout (or after resetNetworkView()): start from a view that fits
+  // First layout : start from a view that fits
   // the whole network in the container. After that the user's pan/zoom wins.
   if (view === null) {
     view = getFittedView(size);
@@ -165,10 +182,14 @@ function positionCards(cards: HTMLElement[], center: Point, radius: number): Poi
   });
 }
 
+function setSvgSize(svg: SVGSVGElement, size: Size) {
+  svg.setAttribute("viewBox", `0 0 ${size.width} ${size.height}`);
+  svg.setAttribute("width", `${size.width}`);
+  svg.setAttribute("height", `${size.height}`);
+}
+
 function drawConnections(links: SVGSVGElement, positions: Point[], size: Size) {
-  links.setAttribute("viewBox", `0 0 ${size.width} ${size.height}`);
-  links.setAttribute("width", `${size.width}`);
-  links.setAttribute("height", `${size.height}`);
+  setSvgSize(links, size);
   links.replaceChildren();
 
   for (let i = 0; i < positions.length; i++) {
@@ -202,7 +223,18 @@ async function createNode() {
     return;
   }
 
-  await runQueuedSteps();
+  replicaIdField.value = "";
+  setCreateNodePopupOpen(false);
+  notifyActionQueued();
+}
+
+function setCreateNodePopupOpen(open: boolean) {
+  createNodePopup.hidden = !open;
+  createNodeToggle.setAttribute("aria-expanded", String(open));
+
+  if (open) {
+    replicaIdField.focus();
+  }
 }
 
 async function removeNode(nodeId: string | null) {
@@ -214,7 +246,7 @@ async function removeNode(nodeId: string | null) {
     return;
   }
 
-  await runQueuedSteps();
+  notifyActionQueued();
 }
 
 async function incrementNode(nodeId: string | null) {
@@ -226,7 +258,7 @@ async function incrementNode(nodeId: string | null) {
     return;
   }
 
-  await runQueuedSteps();
+  notifyActionQueued();
 }
 
 // Pan & zoom interaction
@@ -298,4 +330,22 @@ nodesContainer.addEventListener("pointercancel", stopPanning);
 
 // Events
 createNodeButton.addEventListener("click", createNode);
+createNodeToggle.addEventListener("click", () =>
+  setCreateNodePopupOpen(Boolean(createNodePopup.hidden)),
+);
+replicaIdField.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    createNode();
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    setCreateNodePopupOpen(false);
+  }
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!createNodePopup.hidden && !(e.target as Element).closest(".create-node-menu")) {
+    setCreateNodePopupOpen(false);
+  }
+});
 window.addEventListener("resize", () => activeNetwork && layoutCircularNetwork(activeNetwork));

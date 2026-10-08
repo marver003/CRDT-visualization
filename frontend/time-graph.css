@@ -5,32 +5,32 @@
   top: 20px;
   right: 20px;
   z-index: 10;
-  width: 340px;
+  width: 680px;
   max-width: calc(100% - 40px);
-  padding: 16px;
+  padding: 32px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 20px;
   background: var(--panel);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 10%);
+  box-shadow: 0 16px 48px rgb(0 0 0 / 10%);
 }
 
 .time-graph-title {
-  margin: 0 0 12px;
-  font-size: 15px;
+  margin: 0 0 24px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--text);
 }
 
 .time-graph-scroll {
   max-width: 100%;
-  max-height: 260px;
+  max-height: 520px;
   overflow: auto;
 }
 
 .time-graph-empty {
   margin: 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 26px;
   font-style: italic;
 }
 
@@ -41,12 +41,12 @@
 .time-graph-table th,
 .time-graph-table td {
   box-sizing: border-box;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
+  width: 68px;
+  height: 68px;
+  min-width: 68px;
   border: 1px solid var(--border);
   text-align: center;
-  font-size: 13px;
+  font-size: 26px;
 }
 
 .time-graph-table thead th {
@@ -79,6 +79,15 @@
   background: #eef6ff;
   color: var(--blue);
   font-weight: 700;
+}
+
+.time-graph-cell--send {
+  padding: 0 8px;
+  background: #e4e9ff;
+  color: var(--blue);
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .time-graph-cell--receive {

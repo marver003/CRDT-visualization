@@ -1,4 +1,4 @@
-/* Reusable node card. Use with the markup created by createNodeCard(). */
+/* Reusable node card. Used with the html created by createNodeCard() */
 .node-card {
   width: 260px;
   border: 1px solid var(--border);
@@ -14,6 +14,14 @@
   align-items: center;
   justify-content: space-between;
   font-size: 22px;
+}
+
+.node-card-sum {
+  flex: 1;
+  text-align: center;
+  color: #e5383b;
+  font-weight: 700;
+  font-size: 28px;
 }
 
 .node-card-body {
@@ -113,7 +121,7 @@
   }
 
   100% {
-    background: transparent;
+    background: #d8f2ef;
     transform: scale(1);
   }
 }

@@ -102,13 +102,3 @@ async function resetAPI() {
     method: "POST",
   });
 }
-
-async function loadStateAPI(stateJson: string) {
-  return requestAPI("/load", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: stateJson
-  });
-}
