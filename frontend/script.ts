@@ -5,7 +5,7 @@ const resetButton = document.getElementById(
 ) as HTMLButtonElement;
 
 async function reset() {
-  if (!await resetAPI()) {
+  if (isAdvancing || !await resetAPI()) {
     return;
   }
 

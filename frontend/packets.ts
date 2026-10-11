@@ -1,4 +1,10 @@
-type MessageKind = "gossip" | "write_request" | "write_ack" | "read_request" | "read_response";
+type MessageKind =
+  | "gossip"
+  | "gossip_ack"
+  | "write_request"
+  | "write_ack"
+  | "read_request"
+  | "read_response";
 
 type Endpoint = { kind: "node" | "client"; id: string };
 
@@ -9,6 +15,8 @@ type InFlightMessage = {
   to: Endpoint;
   sentAt: number;
   deliverAt: number;
+  clientId?: string;
+  seq?: number;
 };
 
 type ClientResult = {
@@ -18,7 +26,7 @@ type ClientResult = {
   at: number;
 };
 
-type ClientSnapshot = { id: string; result: ClientResult | null };
+type ClientSnapshot = { id: string; locked: boolean; result: ClientResult | null };
 
 type SimulatorState = {
   now: number;
@@ -33,6 +41,7 @@ const SPAWN_ANIMATION_BASE_MS = 400;
 
 let currentInFlight: InFlightMessage[] = [];
 let currentNow = 0;
+let latestSimulatorState: SimulatorState | null = null;
 
 function packetsLayer(network: Network) {
   return network.stage.querySelector<SVGSVGElement>(".node-network-packets");
@@ -114,6 +123,10 @@ function createPacket(message: InFlightMessage): SVGCircleElement {
   packet.classList.add("node-network-packet", `node-network-packet--${message.kind}`);
   packet.dataset.messageId = message.id;
   packet.setAttribute("r", `${PACKET_RADIUS}`);
+
+  if (message.clientId) {
+    packet.style.fill = clientColor(message.clientId);
+  }
 
   return packet;
 }

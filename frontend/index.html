@@ -103,9 +103,17 @@
           <div class="clients" id="clients"></div>
 
           <div class="time-graph-widget">
-            <h3 class="time-graph-title">Replication Timeline</h3>
-            <div class="time-graph-scroll" id="time-graph-container">
-              <p class="time-graph-empty">No steps yet</p>
+            <div class="time-graph-header">
+              <h3 class="time-graph-title">Replication Timeline</h3>
+              <button id="time-graph-toggle" class="time-graph-toggle" type="button" aria-expanded="true" aria-label="Collapse timeline" title="Collapse / expand">&#9662;</button>
+            </div>
+            <div class="time-graph-body">
+              <div class="time-graph-diagram">
+                <div class="time-graph-lanes" id="time-graph-lanes"></div>
+                <div class="time-graph-scroll" id="time-graph-container">
+                  <p class="time-graph-empty">No steps yet</p>
+                </div>
+              </div>
             </div>
           </div>
         </section>

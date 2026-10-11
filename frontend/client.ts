@@ -1,5 +1,12 @@
 const CLIENT_IDS = ["1", "2"];
 
+const TIMELINE_CLIENT_COLORS: Record<string, string> = { "1": "#0072B2", "2": "#E69F00" };
+const TIMELINE_NEUTRAL_COLOR = "#6b778c";
+
+function clientColor(clientId: string | undefined) {
+  return (clientId && TIMELINE_CLIENT_COLORS[clientId]) || TIMELINE_NEUTRAL_COLOR;
+}
+
 interface ClientView {
   id: string;
   select: HTMLSelectElement;
@@ -10,11 +17,14 @@ interface ClientView {
 
 const clientViews: ClientView[] = [];
 const clientResults = new Map<string, ClientResult>();
+const clientLocked = new Map<string, boolean>();
+let clientsHaveNodes = false;
 
 function createClient(id: string): HTMLElement {
   const client = document.createElement("div");
   client.className = "client";
   client.dataset.clientId = id;
+  client.style.setProperty("--client-color", clientColor(id));
   client.innerHTML = `
     <svg class="client-figure" viewBox="0 0 60 100" aria-hidden="true">
       <circle cx="30" cy="16" r="11" />
@@ -46,6 +56,10 @@ function createClient(id: string): HTMLElement {
   view.writeButton.addEventListener("click", () => sendClientRequest(view, writeAPI));
   view.readButton.addEventListener("click", () => sendClientRequest(view, readAPI));
 
+  view.select.disabled = true;
+  view.writeButton.disabled = true;
+  view.readButton.disabled = true;
+
   clientViews.push(view);
   return client;
 }
@@ -54,13 +68,16 @@ async function sendClientRequest(
   view: ClientView,
   api: (clientId: string, nodeId: string) => Promise<Response | null>,
 ) {
-  if (!view.select.value) {
+  if (isAdvancing || clientLocked.get(view.id) || !view.select.value) {
     return;
   }
 
   if (!await api(view.id, view.select.value)) {
     return;
   }
+
+  clientLocked.set(view.id, true);
+  refreshClientControls();
 
   if (!isAdvancing) {
     const knownMessages = currentInFlight;
@@ -78,6 +95,8 @@ function updateClientResults(clients: ClientSnapshot[]) {
     const view = clientViews.find((item) => item.id === client.id);
     const result = client.result;
 
+    clientLocked.set(client.id, client.locked);
+
     if (result) {
       clientResults.set(client.id, result);
     } else {
@@ -93,6 +112,18 @@ function updateClientResults(clients: ClientSnapshot[]) {
       : result.kind === "write_ack"
         ? `Ack from ${result.nodeId}`
         : `Node ${result.nodeId} = ${result.value}`;
+  }
+
+  refreshClientControls();
+}
+
+function refreshClientControls() {
+  for (const clientView of clientViews) {
+    const blocked = !clientsHaveNodes || isAdvancing || clientLocked.get(clientView.id) === true;
+
+    clientView.select.disabled = !clientsHaveNodes;
+    clientView.writeButton.disabled = blocked;
+    clientView.readButton.disabled = blocked;
   }
 }
 
@@ -114,6 +145,7 @@ function getClientStagePoint(clientId: string): Point | null {
 
 function updateClientNodeOptions(nodeIds: string[]) {
   const sorted = [...nodeIds].sort();
+  clientsHaveNodes = sorted.length > 0;
 
   for (const clientView of clientViews) {
     const previous = clientView.select.value;
@@ -125,11 +157,6 @@ function updateClientNodeOptions(nodeIds: string[]) {
     if (sorted.includes(previous)) {
       clientView.select.value = previous;
     }
-
-    const disabled = sorted.length === 0;
-    clientView.select.disabled = disabled;
-    clientView.writeButton.disabled = disabled;
-    clientView.readButton.disabled = disabled;
   }
 }
 

@@ -69,7 +69,9 @@ async function renderState() {
   const { state } = response;
   const network = createNetwork();
 
+  latestSimulatorState = response;
   currentInFlight = response.inFlight ?? [];
+  rememberTimelineEdges(currentInFlight);
   currentNow = response.now;
   updateClientNodeOptions(Object.keys(state));
   updateClientResults(response.clients ?? []);
@@ -128,7 +130,6 @@ function layoutCircularNetwork(network: Network) {
   stage.style.height = `${size.height}px`;
   drawConnections(links, positions, size);
   setSvgSize(packets, size);
-  drawInFlightPackets(network);
 
   // First layout : start from a view that fits
   // the whole network in the container. After that the user's pan/zoom wins.
@@ -136,6 +137,7 @@ function layoutCircularNetwork(network: Network) {
     view = getFittedView(size);
   }
   applyView(stage);
+  drawInFlightPackets(network);
 }
 
 function getLargestCardSize(cards: HTMLElement[]): Size {
@@ -214,6 +216,10 @@ function getNodeId(input: HTMLInputElement) {
 }
 
 async function createNode() {
+  if (isAdvancing) {
+    return;
+  }
+
   const replicaIdInput = document.getElementById("replica-id");
   const nodeId =
     replicaIdInput instanceof HTMLInputElement ? getNodeId(replicaIdInput) : null;
@@ -241,7 +247,7 @@ function setCreateNodePopupOpen(open: boolean) {
 }
 
 async function removeNode(nodeId: string | null) {
-  if (nodeId === null) {
+  if (nodeId === null || isAdvancing) {
     return;
   }
 

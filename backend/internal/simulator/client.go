@@ -12,8 +12,14 @@ type ClientResult struct {
 }
 
 type Client struct {
-	Id         types.ClientId
-	LastResult *ClientResult
+	Id            types.ClientId
+	LastResult    *ClientResult
+	HasSent       bool
+	LastRequestAt types.StepId
+}
+
+func (c *Client) Locked(now types.StepId) bool {
+	return c.HasSent && c.LastRequestAt == now
 }
 
 func newClients() map[types.ClientId]*Client {

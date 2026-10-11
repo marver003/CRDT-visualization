@@ -1,161 +1,111 @@
-/* Replication Timeline widget - floats on the far right of the Nodes View,
-   mirroring the Create Node widget on the far left. */
 .time-graph-widget {
   position: absolute;
   top: 20px;
   right: 20px;
   z-index: 10;
+  display: flex;
+  flex-direction: column;
   width: 680px;
   max-width: calc(100% - 40px);
-  padding: 32px;
+  max-height: calc(100% - 40px);
+  padding: 22px 24px;
   border: 1px solid var(--border);
   border-radius: 20px;
   background: var(--panel);
   box-shadow: 0 16px 48px rgb(0 0 0 / 10%);
 }
 
+.time-graph-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
 .time-graph-title {
-  margin: 0 0 24px;
-  font-size: 30px;
+  margin: 0;
+  font-size: 26px;
   font-weight: 700;
   color: var(--text);
 }
 
+.time-graph-toggle {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-header);
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.time-graph-toggle:hover {
+  background: var(--bg);
+}
+
+.time-graph-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.time-graph-widget--collapsed .time-graph-body {
+  display: none;
+}
+
+.time-graph-widget--collapsed .time-graph-header {
+  margin-bottom: 0;
+}
+
+.time-graph-diagram {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.time-graph-lanes {
+  flex: 0 0 auto;
+}
+
 .time-graph-scroll {
-  max-width: 100%;
-  max-height: 520px;
-  overflow: auto;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .time-graph-empty {
   margin: 0;
   color: var(--muted);
-  font-size: 26px;
+  font-size: 22px;
   font-style: italic;
 }
 
-.time-graph-table {
-  border-collapse: collapse;
+.tg-svg {
+  display: block;
 }
 
-.time-graph-table th,
-.time-graph-table td {
-  box-sizing: border-box;
-  width: 68px;
-  height: 68px;
-  min-width: 68px;
-  border: 1px solid var(--border);
-  text-align: center;
-  font-size: 26px;
+.tg-axis {
+  stroke: #34445b;
+  stroke-width: 2;
+  opacity: 0.5;
 }
 
-.time-graph-table thead th {
-  position: sticky;
-  top: 0;
-  background: var(--panel-header);
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.time-graph-table tbody th {
-  position: sticky;
-  left: 0;
-  background: var(--panel-header);
-  color: var(--text);
-  font-weight: 700;
-}
-
-.time-graph-table td {
-  color: var(--muted);
-}
-
-.time-graph-cell--create {
-  background: #efe9ff;
-  color: var(--purple);
-  font-weight: 700;
-}
-
-.time-graph-cell--increment {
-  background: #eef6ff;
-  color: var(--blue);
-  font-weight: 700;
-}
-
-.time-graph-cell--send {
-  padding: 0 8px;
-  background: #e4e9ff;
-  color: var(--blue);
+.tg-lane-label {
   font-size: 20px;
   font-weight: 700;
-  white-space: nowrap;
 }
 
-.time-graph-cell--receive {
-  background: #e3f7f6;
-  color: var(--teal);
+.tg-edge {
+  stroke-width: 1.6;
+  opacity: 0.7;
+}
+
+.tg-bucket-sum {
+  font-size: 17px;
   font-weight: 700;
-}
-
-.time-graph-cell--remove {
-  background: #fbe9ea;
-  color: var(--red);
-  font-weight: 700;
-}
-
-.time-graph-cell--gone {
-  background: repeating-linear-gradient(
-    45deg,
-    var(--panel) 0 4px,
-    var(--panel-header) 4px 8px
-  );
-}
-
-.time-graph-cell--merge {
-  background: #d8f2ef;
-  color: #087c79;
-  font-weight: 700;
-}
-
-.time-graph-cell--arrive {
-  padding: 0 8px;
-  background: #f4f0ff;
-  color: var(--purple);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.time-graph-cell--read {
-  background: #e3f7f6;
-  color: var(--teal);
-  font-weight: 700;
-}
-
-.time-graph-cell--ack {
-  padding: 0 8px;
-  background: #e5f5ec;
-  color: #2f9e5b;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.time-graph-cell--response {
-  padding: 0 8px;
-  background: #e5f5ec;
-  color: #2f9e5b;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.time-graph-cell--multi {
-  padding: 0;
-}
-
-.time-graph-cell--multi > span {
-  display: block;
-  padding: 0 8px;
-  white-space: nowrap;
-}
-
-.time-graph-row--client {
-  color: var(--purple);
 }

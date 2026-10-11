@@ -20,7 +20,7 @@
   height: 86px;
   flex: 0 0 auto;
   fill: none;
-  stroke: var(--text);
+  stroke: var(--client-color, var(--text));
   stroke-width: 4;
   stroke-linecap: round;
 }

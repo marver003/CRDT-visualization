@@ -1,6 +1,8 @@
 package simulator
 
 import (
+	"errors"
+
 	"github.com/google/uuid"
 	"github.com/marver003/crdt/internal/types"
 )
@@ -13,6 +15,11 @@ const (
 )
 
 const sendDelay types.StepId = 1
+
+var (
+	ErrClientNotFound = errors.New("client does not exist")
+	ErrClientBusy     = errors.New("client already sent a request in this tick")
+)
 
 type BaseOperation struct {
 	StepId types.StepId
@@ -38,6 +45,7 @@ type IncrementOperation struct {
 	ReplicaId types.ReplicaId
 	ClientId  types.ClientId
 	RequestId string
+	Seq       uint64
 }
 
 type ReadOperation struct {
@@ -45,6 +53,7 @@ type ReadOperation struct {
 	ReplicaId types.ReplicaId
 	ClientId  types.ClientId
 	RequestId string
+	Seq       uint64
 }
 
 type SendResponseOperation struct {
@@ -52,6 +61,7 @@ type SendResponseOperation struct {
 	ReplicaId types.ReplicaId
 	ClientId  types.ClientId
 	RequestId string
+	Seq       uint64
 	Kind      MessageKind
 	Value     uint64
 }
@@ -63,8 +73,10 @@ type ReceiveResponseOperation struct {
 
 type SendGossipMessageOperation struct {
 	BaseOperation
-	From types.ReplicaId
-	To   types.ReplicaId
+	From     types.ReplicaId
+	To       types.ReplicaId
+	ClientId types.ClientId
+	Seq      uint64
 }
 
 type ReceiveGossipMessageOperation struct {
@@ -73,6 +85,19 @@ type ReceiveGossipMessageOperation struct {
 }
 
 type MergeOperation struct {
+	BaseOperation
+	Message *Message
+}
+
+type SendGossipAckOperation struct {
+	BaseOperation
+	From     types.ReplicaId
+	To       types.ReplicaId
+	ClientId types.ClientId
+	Seq      uint64
+}
+
+type ReceiveGossipAckOperation struct {
 	BaseOperation
 	Message *Message
 }
@@ -89,7 +114,19 @@ func (op RemoveNodeOperation) Execute(sim *Simulator) error {
 	return sim.Store.RemoveNode(op.ReplicaId)
 }
 
-func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.ReplicaId, kind RequestKind) {
+func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.ReplicaId, kind RequestKind) error {
+	client, ok := s.Clients[clientId]
+	if !ok {
+		return ErrClientNotFound
+	}
+
+	if client.Locked(s.Now) {
+		return ErrClientBusy
+	}
+
+	client.HasSent = true
+	client.LastRequestAt = s.Now
+
 	messageKind := WriteRequestMessage
 	if kind == ReadRequest {
 		messageKind = ReadRequestMessage
@@ -98,11 +135,16 @@ func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.R
 	deliverAt := s.Now + s.Timing.RequestLatency
 	msg := s.NewMessage(messageKind, ClientAt(clientId), NodeAt(replicaId), deliverAt)
 	msg.RequestId = uuid.NewString()
+	msg.ClientId = clientId
+	s.RequestSeq++
+	msg.Seq = s.RequestSeq
 
 	s.Queue.Enqueue(ReceiveRequestOperation{
 		BaseOperation: BaseOperation{StepId: deliverAt},
 		Message:       msg,
 	})
+
+	return nil
 }
 
 func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
@@ -122,6 +164,7 @@ func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
 			ReplicaId:     replicaId,
 			ClientId:      clientId,
 			RequestId:     op.Message.RequestId,
+			Seq:           op.Message.Seq,
 		})
 		return nil
 	}
@@ -131,6 +174,7 @@ func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
 		ReplicaId:     replicaId,
 		ClientId:      clientId,
 		RequestId:     op.Message.RequestId,
+		Seq:           op.Message.Seq,
 	})
 
 	return nil
@@ -147,6 +191,7 @@ func (op IncrementOperation) Execute(sim *Simulator) error {
 			ReplicaId:     op.ReplicaId,
 			ClientId:      op.ClientId,
 			RequestId:     op.RequestId,
+			Seq:           op.Seq,
 			Kind:          WriteAckMessage,
 		})
 	}
@@ -160,6 +205,8 @@ func (op IncrementOperation) Execute(sim *Simulator) error {
 			BaseOperation: sim.After(sendDelay),
 			From:          op.ReplicaId,
 			To:            id,
+			ClientId:      op.ClientId,
+			Seq:           op.Seq,
 		})
 	}
 
@@ -177,6 +224,7 @@ func (op ReadOperation) Execute(sim *Simulator) error {
 		ReplicaId:     op.ReplicaId,
 		ClientId:      op.ClientId,
 		RequestId:     op.RequestId,
+		Seq:           op.Seq,
 		Kind:          ReadResponseMessage,
 		Value:         value,
 	})
@@ -192,6 +240,8 @@ func (op SendResponseOperation) Execute(sim *Simulator) error {
 	deliverAt := sim.Now + sim.Timing.ResponseLatency
 	msg := sim.NewMessage(op.Kind, NodeAt(op.ReplicaId), ClientAt(op.ClientId), deliverAt)
 	msg.RequestId = op.RequestId
+	msg.ClientId = op.ClientId
+	msg.Seq = op.Seq
 	msg.Value = op.Value
 
 	sim.Queue.Enqueue(ReceiveResponseOperation{
@@ -228,6 +278,8 @@ func (op SendGossipMessageOperation) Execute(sim *Simulator) error {
 
 	deliverAt := sim.Now + sim.Timing.GossipLatency
 	msg := sim.NewMessage(GossipMessage, NodeAt(op.From), NodeAt(op.To), deliverAt)
+	msg.ClientId = op.ClientId
+	msg.Seq = op.Seq
 	msg.State = from.Crdt.GetSnapshot()
 
 	sim.Queue.Enqueue(ReceiveGossipMessageOperation{
@@ -260,6 +312,38 @@ func (op MergeOperation) Execute(sim *Simulator) error {
 	}
 
 	node.Crdt.Merge(op.Message.State)
+
+	sim.Queue.Enqueue(SendGossipAckOperation{
+		BaseOperation: sim.After(sendDelay),
+		From:          types.ReplicaId(op.Message.To.Id),
+		To:            types.ReplicaId(op.Message.From.Id),
+		ClientId:      op.Message.ClientId,
+		Seq:           op.Message.Seq,
+	})
+
+	return nil
+}
+
+func (op SendGossipAckOperation) Execute(sim *Simulator) error {
+	if _, ok := sim.Store.Nodes[op.From]; !ok {
+		return nil
+	}
+
+	deliverAt := sim.Now + sim.Timing.GossipLatency
+	msg := sim.NewMessage(GossipAckMessage, NodeAt(op.From), NodeAt(op.To), deliverAt)
+	msg.ClientId = op.ClientId
+	msg.Seq = op.Seq
+
+	sim.Queue.Enqueue(ReceiveGossipAckOperation{
+		BaseOperation: BaseOperation{StepId: deliverAt},
+		Message:       msg,
+	})
+
+	return nil
+}
+
+func (op ReceiveGossipAckOperation) Execute(sim *Simulator) error {
+	sim.RemovePendingMessage(op.Message.Id)
 
 	return nil
 }

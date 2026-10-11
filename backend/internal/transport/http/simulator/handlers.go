@@ -2,6 +2,7 @@ package simhttp
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"slices"
 	"strings"
@@ -88,7 +89,15 @@ func (h *Handler) clientRequest(w http.ResponseWriter, r *http.Request, kind sim
 		return
 	}
 
-	h.Sim.SendClientRequest(req.ClientId, req.NodeId, kind)
+	if err := h.Sim.SendClientRequest(req.ClientId, req.NodeId, kind); err != nil {
+		status := http.StatusBadRequest
+		if errors.Is(err, simulator.ErrClientBusy) {
+			status = http.StatusConflict
+		}
+
+		helper.WriteError(w, status, err.Error())
+		return
+	}
 
 	helper.WriteOkNoContent(w)
 }
@@ -128,7 +137,7 @@ func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, client := range h.Sim.Clients {
-		item := respClient{Id: client.Id}
+		item := respClient{Id: client.Id, Locked: client.Locked(h.Sim.Now)}
 
 		if client.LastResult != nil {
 			item.Result = &respClientResult{
@@ -154,6 +163,8 @@ func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
 			To:        respEndpoint{Kind: string(msg.To.Kind), Id: msg.To.Id},
 			SentAt:    msg.SentAt,
 			DeliverAt: msg.DeliverAt,
+			ClientId:  msg.ClientId,
+			Seq:       msg.Seq,
 		})
 	}
 
@@ -195,6 +206,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					Type:      "receive_" + string(op.Message.Kind),
 					ClientId:  types.ClientId(op.Message.From.Id),
 					ReplicaId: types.ReplicaId(op.Message.To.Id),
+					Seq:       op.Message.Seq,
 				})
 
 			case simulator.IncrementOperation:
@@ -203,6 +215,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					Type:      "increment",
 					ReplicaId: op.ReplicaId,
 					ClientId:  op.ClientId,
+					Seq:       op.Seq,
 				})
 
 			case simulator.ReadOperation:
@@ -211,6 +224,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					Type:      "read",
 					ReplicaId: op.ReplicaId,
 					ClientId:  op.ClientId,
+					Seq:       op.Seq,
 				})
 
 			case simulator.SendResponseOperation:
@@ -224,6 +238,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					Type:      stepType,
 					ReplicaId: op.ReplicaId,
 					ClientId:  op.ClientId,
+					Seq:       op.Seq,
 				})
 
 			case simulator.ReceiveResponseOperation:
@@ -232,30 +247,57 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					Type:      "receive_" + string(op.Message.Kind),
 					ReplicaId: types.ReplicaId(op.Message.From.Id),
 					ClientId:  types.ClientId(op.Message.To.Id),
+					Seq:       op.Message.Seq,
 				})
 
 			case simulator.SendGossipMessageOperation:
 				steps = append(steps, respStep{
-					StepId: op.StepId,
-					Type:   "send_gossip",
-					From:   op.From,
-					To:     op.To,
+					StepId:   op.StepId,
+					Type:     "send_gossip",
+					From:     op.From,
+					To:       op.To,
+					ClientId: op.ClientId,
+					Seq:      op.Seq,
 				})
 
 			case simulator.ReceiveGossipMessageOperation:
 				steps = append(steps, respStep{
-					StepId: op.StepId,
-					Type:   "receive_gossip",
-					From:   types.ReplicaId(op.Message.From.Id),
-					To:     types.ReplicaId(op.Message.To.Id),
+					StepId:   op.StepId,
+					Type:     "receive_gossip",
+					From:     types.ReplicaId(op.Message.From.Id),
+					To:       types.ReplicaId(op.Message.To.Id),
+					ClientId: op.Message.ClientId,
+					Seq:      op.Message.Seq,
+				})
+
+			case simulator.SendGossipAckOperation:
+				steps = append(steps, respStep{
+					StepId:   op.StepId,
+					Type:     "send_gossip_ack",
+					From:     op.From,
+					To:       op.To,
+					ClientId: op.ClientId,
+					Seq:      op.Seq,
+				})
+
+			case simulator.ReceiveGossipAckOperation:
+				steps = append(steps, respStep{
+					StepId:   op.StepId,
+					Type:     "receive_gossip_ack",
+					From:     types.ReplicaId(op.Message.From.Id),
+					To:       types.ReplicaId(op.Message.To.Id),
+					ClientId: op.Message.ClientId,
+					Seq:      op.Message.Seq,
 				})
 
 			case simulator.MergeOperation:
 				steps = append(steps, respStep{
-					StepId: op.StepId,
-					Type:   "merge",
-					From:   types.ReplicaId(op.Message.From.Id),
-					To:     types.ReplicaId(op.Message.To.Id),
+					StepId:   op.StepId,
+					Type:     "merge",
+					From:     types.ReplicaId(op.Message.From.Id),
+					To:       types.ReplicaId(op.Message.To.Id),
+					ClientId: op.Message.ClientId,
+					Seq:      op.Message.Seq,
 				})
 			}
 		}

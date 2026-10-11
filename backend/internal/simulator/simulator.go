@@ -30,6 +30,7 @@ type Simulator struct {
 	Queue           *StepQueue
 	Timing          Timing
 	Now             types.StepId
+	RequestSeq      uint64
 }
 
 func New(crdtType types.CrdtType) *Simulator {

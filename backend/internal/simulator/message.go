@@ -14,6 +14,7 @@ const (
 	WriteAckMessage     MessageKind = "write_ack"
 	ReadRequestMessage  MessageKind = "read_request"
 	ReadResponseMessage MessageKind = "read_response"
+	GossipAckMessage    MessageKind = "gossip_ack"
 )
 
 type EndpointKind string
@@ -42,6 +43,8 @@ type Message struct {
 	From      Endpoint
 	To        Endpoint
 	RequestId string
+	ClientId  types.ClientId
+	Seq       uint64
 	State     crdt.Snapshot
 	Value     uint64
 	SentAt    types.StepId

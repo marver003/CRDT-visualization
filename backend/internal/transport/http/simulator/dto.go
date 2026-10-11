@@ -25,6 +25,7 @@ type respGetState struct {
 
 type respClient struct {
 	Id     types.ClientId    `json:"id"`
+	Locked bool              `json:"locked"`
 	Result *respClientResult `json:"result"`
 }
 
@@ -41,12 +42,14 @@ type respEndpoint struct {
 }
 
 type respMessage struct {
-	Id        string       `json:"id"`
-	Kind      string       `json:"kind"`
-	From      respEndpoint `json:"from"`
-	To        respEndpoint `json:"to"`
-	SentAt    types.StepId `json:"sentAt"`
-	DeliverAt types.StepId `json:"deliverAt"`
+	Id        string         `json:"id"`
+	Kind      string         `json:"kind"`
+	From      respEndpoint   `json:"from"`
+	To        respEndpoint   `json:"to"`
+	SentAt    types.StepId   `json:"sentAt"`
+	DeliverAt types.StepId   `json:"deliverAt"`
+	ClientId  types.ClientId `json:"clientId,omitempty"`
+	Seq       uint64         `json:"seq,omitempty"`
 }
 
 type respGetSteps struct {
@@ -59,6 +62,7 @@ type respStep struct {
 
 	ReplicaId types.ReplicaId `json:"replicaId,omitempty"`
 	ClientId  types.ClientId  `json:"clientId,omitempty"`
+	Seq       uint64          `json:"seq,omitempty"`
 
 	From types.ReplicaId `json:"from,omitempty"`
 	To   types.ReplicaId `json:"to,omitempty"`
