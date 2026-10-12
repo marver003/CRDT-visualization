@@ -15,8 +15,9 @@ import (
 
 // Handler holds shared dependencies for all HTTP handlers.
 type Handler struct {
-	mu  sync.Mutex
-	Sim *simulator.Simulator
+	mu     sync.Mutex
+	Sim    *simulator.Simulator
+	newSim func() (*simulator.Simulator, error)
 }
 
 func (h *Handler) locked(next http.HandlerFunc) http.HandlerFunc {
@@ -28,8 +29,8 @@ func (h *Handler) locked(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func NewHandler(s *simulator.Simulator) *Handler {
-	return &Handler{Sim: s}
+func NewHandler(s *simulator.Simulator, newSim func() (*simulator.Simulator, error)) *Handler {
+	return &Handler{Sim: s, newSim: newSim}
 }
 
 func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
@@ -322,7 +323,20 @@ func (h *Handler) NextStep(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
-	h.Sim = simulator.New(h.Sim.Store.CrdtType)
+	if h.newSim == nil {
+		h.Sim = simulator.New(h.Sim.Store.CrdtType)
+
+		helper.WriteOkNoContent(w)
+		return
+	}
+
+	sim, err := h.newSim()
+	if err != nil {
+		helper.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.Sim = sim
 
 	helper.WriteOkNoContent(w)
 }

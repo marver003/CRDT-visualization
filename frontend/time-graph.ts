@@ -59,6 +59,7 @@ const timelineEdges = new Map<string, TimelineEdge>();
 const timelineSums = new Map<number, Record<string, number>>();
 const timelineDisabled = new Map<number, string[]>();
 let timelineBaseTick: number | null = null;
+let timelineRecording = false;
 let timelineLastTick = 0;
 
 function resetTimeGraph() {
@@ -68,6 +69,23 @@ function resetTimeGraph() {
   timelineDisabled.clear();
   timelineBaseTick = null;
   timelineLastTick = 0;
+  timelineRecording = false;
+  renderTimeGraph();
+}
+
+function syncTimelinePreview() {
+  if (timelineRecording || !latestSimulatorState) {
+    return;
+  }
+
+  const { now, state, disabled } = latestSimulatorState;
+
+  timelineSums.clear();
+  timelineDisabled.clear();
+  timelineSums.set(now, sumsOf(state));
+  timelineDisabled.set(now, disabled ?? []);
+  timelineBaseTick = now;
+  timelineLastTick = now;
   renderTimeGraph();
 }
 
@@ -99,7 +117,10 @@ function rememberTimelineEdges(messages: InFlightMessage[]) {
 }
 
 function recordTimelineTick(before: SimulatorState, after: SimulatorState, batch: Step[]) {
-  if (timelineBaseTick === null) {
+  if (!timelineRecording) {
+    timelineRecording = true;
+    timelineSums.clear();
+    timelineDisabled.clear();
     timelineBaseTick = before.now;
     timelineSums.set(before.now, sumsOf(before.state));
     timelineDisabled.set(before.now, before.disabled ?? []);
@@ -312,7 +333,7 @@ function nodePresence(nodeId: string, base: number, last: number) {
 function renderTimeGraph() {
   if (timelineBaseTick === null) {
     timeGraphLanes.replaceChildren();
-    timeGraphContainer.innerHTML = '<p class="time-graph-empty">No steps yet</p>';
+    timeGraphContainer.replaceChildren();
     return;
   }
 

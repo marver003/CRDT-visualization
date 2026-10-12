@@ -33,12 +33,21 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
-	sim, err := simulator.Load(cfg.Simulator.Crdt, snapshots)
+	newSim := func() (*simulator.Simulator, error) {
+		initial, err := cfg.Snapshots()
+		if err != nil {
+			return nil, err
+		}
+
+		return simulator.Load(cfg.Simulator.Crdt, initial)
+	}
+
+	sim, err := newSim()
 	if err != nil {
 		log.Fatalf("simulator: %v", err)
 	}
 
-	handler := simhttp.NewHandler(sim)
+	handler := simhttp.NewHandler(sim, newSim)
 	router := simhttp.NewRouter(handler)
 
 	log.Printf("Simulator (%s, %d nodes) API listening on %d", cfg.Simulator.Crdt, len(snapshots), cfg.Simulator.Port)

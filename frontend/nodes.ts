@@ -72,6 +72,7 @@ async function renderState() {
   latestSimulatorState = response;
   currentInFlight = response.inFlight ?? [];
   rememberTimelineEdges(currentInFlight);
+  syncTimelinePreview();
   currentNow = response.now;
   updateClientNodeOptions(Object.keys(state));
   updateClientResults(response.clients ?? []);
