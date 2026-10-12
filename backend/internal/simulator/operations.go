@@ -25,16 +25,6 @@ type BaseOperation struct {
 	StepId types.StepId
 }
 
-type CreateNodeOperation struct {
-	BaseOperation
-	ReplicaId types.ReplicaId
-}
-
-type RemoveNodeOperation struct {
-	BaseOperation
-	ReplicaId types.ReplicaId
-}
-
 type ReceiveRequestOperation struct {
 	BaseOperation
 	Message *Message
@@ -106,14 +96,6 @@ func (op BaseOperation) GetStepId() types.StepId {
 	return op.StepId
 }
 
-func (op CreateNodeOperation) Execute(sim *Simulator) error {
-	return sim.Store.CreateNode(op.ReplicaId)
-}
-
-func (op RemoveNodeOperation) Execute(sim *Simulator) error {
-	return sim.Store.RemoveNode(op.ReplicaId)
-}
-
 func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.ReplicaId, kind RequestKind) error {
 	client, ok := s.Clients[clientId]
 	if !ok {
@@ -151,7 +133,7 @@ func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
 	sim.RemovePendingMessage(op.Message.Id)
 
 	replicaId := types.ReplicaId(op.Message.To.Id)
-	if _, ok := sim.Store.Nodes[replicaId]; !ok {
+	if !sim.Store.IsUp(replicaId) {
 		return nil
 	}
 
@@ -181,6 +163,10 @@ func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
 }
 
 func (op IncrementOperation) Execute(sim *Simulator) error {
+	if !sim.Store.IsUp(op.ReplicaId) {
+		return nil
+	}
+
 	if _, err := sim.Store.IncrementNodeCounter(op.ReplicaId); err != nil {
 		return err
 	}
@@ -214,6 +200,10 @@ func (op IncrementOperation) Execute(sim *Simulator) error {
 }
 
 func (op ReadOperation) Execute(sim *Simulator) error {
+	if !sim.Store.IsUp(op.ReplicaId) {
+		return nil
+	}
+
 	value, err := sim.Store.ReadNodeValue(op.ReplicaId)
 	if err != nil {
 		return err
@@ -233,7 +223,7 @@ func (op ReadOperation) Execute(sim *Simulator) error {
 }
 
 func (op SendResponseOperation) Execute(sim *Simulator) error {
-	if _, ok := sim.Store.Nodes[op.ReplicaId]; !ok {
+	if !sim.Store.IsUp(op.ReplicaId) {
 		return nil
 	}
 
@@ -271,10 +261,11 @@ func (op ReceiveResponseOperation) Execute(sim *Simulator) error {
 }
 
 func (op SendGossipMessageOperation) Execute(sim *Simulator) error {
-	from, ok := sim.Store.Nodes[op.From]
-	if !ok {
+	if !sim.Store.IsUp(op.From) {
 		return nil
 	}
+
+	from := sim.Store.Nodes[op.From]
 
 	deliverAt := sim.Now + sim.Timing.GossipLatency
 	msg := sim.NewMessage(GossipMessage, NodeAt(op.From), NodeAt(op.To), deliverAt)
@@ -293,7 +284,7 @@ func (op SendGossipMessageOperation) Execute(sim *Simulator) error {
 func (op ReceiveGossipMessageOperation) Execute(sim *Simulator) error {
 	sim.RemovePendingMessage(op.Message.Id)
 
-	if _, ok := sim.Store.Nodes[types.ReplicaId(op.Message.To.Id)]; !ok {
+	if !sim.Store.IsUp(types.ReplicaId(op.Message.To.Id)) {
 		return nil
 	}
 
@@ -306,10 +297,11 @@ func (op ReceiveGossipMessageOperation) Execute(sim *Simulator) error {
 }
 
 func (op MergeOperation) Execute(sim *Simulator) error {
-	node, ok := sim.Store.Nodes[types.ReplicaId(op.Message.To.Id)]
-	if !ok {
+	if !sim.Store.IsUp(types.ReplicaId(op.Message.To.Id)) {
 		return nil
 	}
+
+	node := sim.Store.Nodes[types.ReplicaId(op.Message.To.Id)]
 
 	node.Crdt.Merge(op.Message.State)
 
@@ -325,7 +317,7 @@ func (op MergeOperation) Execute(sim *Simulator) error {
 }
 
 func (op SendGossipAckOperation) Execute(sim *Simulator) error {
-	if _, ok := sim.Store.Nodes[op.From]; !ok {
+	if !sim.Store.IsUp(op.From) {
 		return nil
 	}
 

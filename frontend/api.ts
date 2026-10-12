@@ -52,9 +52,15 @@ async function createNodeAPI(replicaId: string) {
   });
 }
 
-async function removeNodeAPI(replicaId: string) {
-  return requestAPI(`/removeNode/${encodeURIComponent(replicaId)}`, {
-    method: "DELETE",
+async function disableNodeAPI(replicaId: string) {
+  return requestAPI(`/disableNode/${encodeURIComponent(replicaId)}`, {
+    method: "POST",
+  });
+}
+
+async function enableNodeAPI(replicaId: string) {
+  return requestAPI(`/enableNode/${encodeURIComponent(replicaId)}`, {
+    method: "POST",
   });
 }
 

@@ -109,3 +109,8 @@
   font-size: 17px;
   font-weight: 700;
 }
+
+.tg-down {
+  fill: #3f4a5a;
+  opacity: 0.1;
+}

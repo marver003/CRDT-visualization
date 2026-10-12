@@ -37,28 +37,37 @@ func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&req)
 
-	if err != nil {
+	if err != nil || req.Id == "" {
 		helper.WriteError(w, http.StatusBadRequest, `Request body must be JSON with "id" field`)
 		return
 	}
 
-	h.Sim.Queue.Enqueue(
-		simulator.CreateNodeOperation{
-			BaseOperation: h.Sim.After(1),
-			ReplicaId:     req.Id,
-		})
+	if err := h.Sim.Store.CreateNode(req.Id); err != nil {
+		helper.WriteError(w, http.StatusConflict, err.Error())
+		return
+	}
 
 	helper.WriteOkNoContent(w)
 }
 
-func (h *Handler) RemoveNode(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) DisableNode(w http.ResponseWriter, r *http.Request) {
 	id := types.ReplicaId(r.PathValue("replicaId"))
 
-	h.Sim.Queue.Enqueue(
-		simulator.RemoveNodeOperation{
-			BaseOperation: h.Sim.After(1),
-			ReplicaId:     id,
-		})
+	if err := h.Sim.Store.DisableNode(id); err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	helper.WriteOkNoContent(w)
+}
+
+func (h *Handler) EnableNode(w http.ResponseWriter, r *http.Request) {
+	id := types.ReplicaId(r.PathValue("replicaId"))
+
+	if err := h.Sim.Store.EnableNode(id); err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 
 	helper.WriteOkNoContent(w)
 }
@@ -132,6 +141,7 @@ func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
 	resp := &respGetState{
 		Now:      h.Sim.Now,
 		State:    state,
+		Disabled: disabledNodes(h.Sim.Store),
 		Clients:  make([]respClient, 0, len(h.Sim.Clients)),
 		InFlight: make([]respMessage, 0, len(h.Sim.PendingMessages)),
 	}
@@ -186,20 +196,6 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 	for _, ops := range operations {
 		for _, op := range ops {
 			switch op := op.(type) {
-			case simulator.CreateNodeOperation:
-				steps = append(steps, respStep{
-					StepId:    op.StepId,
-					Type:      "create_node",
-					ReplicaId: op.ReplicaId,
-				})
-
-			case simulator.RemoveNodeOperation:
-				steps = append(steps, respStep{
-					StepId:    op.StepId,
-					Type:      "remove_node",
-					ReplicaId: op.ReplicaId,
-				})
-
 			case simulator.ReceiveRequestOperation:
 				steps = append(steps, respStep{
 					StepId:    op.StepId,
@@ -329,4 +325,16 @@ func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 	h.Sim = simulator.New(h.Sim.Store.CrdtType)
 
 	helper.WriteOkNoContent(w)
+}
+
+func disabledNodes(store *simulator.Store) []types.ReplicaId {
+	disabled := make([]types.ReplicaId, 0, len(store.Disabled))
+
+	for id := range store.Disabled {
+		disabled = append(disabled, id)
+	}
+
+	slices.Sort(disabled)
+
+	return disabled
 }

@@ -78,9 +78,11 @@ async function renderState() {
 
   activeNetwork = network;
 
+  const disabledNodes = new Set(response.disabled ?? []);
+
   for (const [nodeId, counts] of Object.entries(state)) {
     const replicaCounts = counts as Record<string, number>;
-    const card = createNodeCard({ nodeId, state: replicaCounts });
+    const card = createNodeCard({ nodeId, state: replicaCounts, disabled: disabledNodes.has(nodeId) });
 
     network.stage.appendChild(card);
     network.cards.push(card);
@@ -228,13 +230,18 @@ async function createNode() {
     return;
   }
 
+  if (activeNetwork && findCard(activeNetwork, nodeId.toUpperCase())) {
+    replicaIdField.select();
+    return;
+  }
+
   if (!await createNodeAPI(nodeId.toUpperCase())) {
     return;
   }
 
   replicaIdField.value = "";
   setCreateNodePopupOpen(false);
-  notifyActionQueued();
+  await renderState();
 }
 
 function setCreateNodePopupOpen(open: boolean) {
@@ -246,16 +253,18 @@ function setCreateNodePopupOpen(open: boolean) {
   }
 }
 
-async function removeNode(nodeId: string | null) {
+async function toggleNodePower(nodeId: string | null, disabled: boolean) {
   if (nodeId === null || isAdvancing) {
     return;
   }
 
-  if (!await removeNodeAPI(nodeId)) {
+  const request = disabled ? enableNodeAPI : disableNodeAPI;
+
+  if (!await request(nodeId)) {
     return;
   }
 
-  notifyActionQueued();
+  await renderState();
 }
 
 // Pan & zoom interaction

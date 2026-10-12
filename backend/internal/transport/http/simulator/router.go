@@ -25,7 +25,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 func registerRoutes(mux *http.ServeMux, h *Handler) {
 
 	mux.HandleFunc("POST /createNode", h.locked(h.CreateNode))               // body should contain replicaId
-	mux.HandleFunc("DELETE /removeNode/{replicaId}", h.locked(h.RemoveNode)) // no body
+	mux.HandleFunc("POST /disableNode/{replicaId}", h.locked(h.DisableNode)) // no body
+	mux.HandleFunc("POST /enableNode/{replicaId}", h.locked(h.EnableNode))   // no body
 	mux.HandleFunc("GET /state", h.locked(h.GetState))                       // state for everything
 	mux.HandleFunc("POST /write", h.locked(h.WriteRequest))
 	mux.HandleFunc("POST /read", h.locked(h.ReadRequest))

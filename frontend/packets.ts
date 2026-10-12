@@ -30,6 +30,7 @@ type ClientSnapshot = { id: string; locked: boolean; result: ClientResult | null
 
 type SimulatorState = {
   now: number;
+  disabled?: string[];
   state: Record<string, Record<string, number>>;
   clients: ClientSnapshot[];
   inFlight: InFlightMessage[];
@@ -178,6 +179,7 @@ async function playTickPacketAnimations(before: SimulatorState) {
   }
 
   const tick = before.now + 1;
+  const down = new Set(before.disabled ?? []);
   const animations: Promise<void>[] = [];
 
   for (const message of before.inFlight) {
@@ -192,7 +194,9 @@ async function playTickPacketAnimations(before: SimulatorState) {
     const to = lerpPoint(ends.start, ends.end, messageProgress(message, tick));
 
     if (message.deliverAt === tick) {
-      animations.push(playDelivery(network, message, packet, from, ends.end));
+      animations.push(
+        playDelivery(network, message, packet, from, ends.end, message.to.kind === "node" && down.has(message.to.id)),
+      );
     } else {
       animations.push(animatePacket(packet, from, to, gossipSendAnimationDuration(), PACKET_RADIUS, false));
     }
@@ -207,11 +211,17 @@ async function playDelivery(
   packet: SVGCircleElement,
   from: Point,
   border: Point,
+  targetDown: boolean,
 ) {
   const target = endpointCenter(network, message.to);
 
   if (Math.hypot(border.x - from.x, border.y - from.y) > 1) {
     await animatePacket(packet, from, border, gossipSendAnimationDuration(), PACKET_RADIUS, false);
+  }
+
+  if (targetDown) {
+    await packet.animate({ opacity: [1, 0] }, { duration: gossipReceiveAnimationDuration(), fill: "forwards" }).finished;
+    return;
   }
 
   if (!target) {

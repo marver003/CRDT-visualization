@@ -10,12 +10,14 @@ import (
 
 type Store struct {
 	Nodes    map[types.ReplicaId]*node.Node
+	Disabled map[types.ReplicaId]bool
 	CrdtType types.CrdtType
 }
 
 func NewStore(crdtType types.CrdtType) *Store {
 	return &Store{
 		Nodes:    make(map[types.ReplicaId]*node.Node),
+		Disabled: make(map[types.ReplicaId]bool),
 		CrdtType: crdtType,
 	}
 }
@@ -51,14 +53,31 @@ func (s *Store) CreateNodeWithSnapshot(id types.ReplicaId, snapshot crdt.Snapsho
 	return nil
 }
 
-func (s *Store) RemoveNode(id types.ReplicaId) error {
+func (s *Store) DisableNode(id types.ReplicaId) error {
 	if _, exists := s.Nodes[id]; !exists {
 		return fmt.Errorf("node %q does not exist", id)
 	}
 
-	delete(s.Nodes, id)
+	s.Disabled[id] = true
 
 	return nil
+}
+
+func (s *Store) EnableNode(id types.ReplicaId) error {
+	if _, exists := s.Nodes[id]; !exists {
+		return fmt.Errorf("node %q does not exist", id)
+	}
+
+	delete(s.Disabled, id)
+
+	return nil
+}
+
+// IsUp reports whether the node exists and is not disabled
+func (s *Store) IsUp(id types.ReplicaId) bool {
+	_, exists := s.Nodes[id]
+
+	return exists && !s.Disabled[id]
 }
 
 // GetState returns the state of every gcounter node

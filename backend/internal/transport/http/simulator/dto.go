@@ -19,6 +19,7 @@ type reqMergeNodes struct {
 type respGetState struct {
 	Now      types.StepId                                   `json:"now"`
 	State    map[types.ReplicaId]map[types.ReplicaId]uint64 `json:"state"`
+	Disabled []types.ReplicaId                              `json:"disabled"`
 	Clients  []respClient                                   `json:"clients"`
 	InFlight []respMessage                                  `json:"inFlight"`
 }

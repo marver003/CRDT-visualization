@@ -27,6 +27,7 @@ type Bucket = {
   rightLeg: boolean;
   clients: string[];
   seqs: number[];
+  row: number;
 };
 
 type Lane = {
@@ -38,11 +39,11 @@ type Lane = {
 
 const TICK_WIDTH = 60;
 const BUCKET_HEIGHT = 34;
-const LANE_TOP = 12;
+const LANE_TOP = 10;
 const LANE_BOTTOM = 16;
-const DASH = 9;
-const LABEL_ROW = 16;
-const LABEL_OVERLAP = 30;
+const LINE_GAP = 10;
+const ROW_GAP = 10;
+const BUCKET_MARGIN = 8;
 const LEG_DX = 14;
 const HEADER_HEIGHT = 8;
 const LEFT_PAD = 28;
@@ -56,6 +57,7 @@ const timeGraphWidget = document.querySelector(".time-graph-widget") as HTMLElem
 let timelineEvents: TimelineEvent[] = [];
 const timelineEdges = new Map<string, TimelineEdge>();
 const timelineSums = new Map<number, Record<string, number>>();
+const timelineDisabled = new Map<number, string[]>();
 let timelineBaseTick: number | null = null;
 let timelineLastTick = 0;
 
@@ -63,6 +65,7 @@ function resetTimeGraph() {
   timelineEvents = [];
   timelineEdges.clear();
   timelineSums.clear();
+  timelineDisabled.clear();
   timelineBaseTick = null;
   timelineLastTick = 0;
   renderTimeGraph();
@@ -99,14 +102,24 @@ function recordTimelineTick(before: SimulatorState, after: SimulatorState, batch
   if (timelineBaseTick === null) {
     timelineBaseTick = before.now;
     timelineSums.set(before.now, sumsOf(before.state));
+    timelineDisabled.set(before.now, before.disabled ?? []);
   }
 
   const tick = after.now;
   timelineSums.set(tick, sumsOf(after.state));
+  timelineDisabled.set(tick, after.disabled ?? []);
   timelineLastTick = tick;
 
+  const down = new Set(before.disabled ?? []);
+
   for (const step of batch) {
-    timelineEvents.push(toTimelineEvent(tick, step));
+    const event = toTimelineEvent(tick, step);
+
+    if (event.node && down.has(event.node)) {
+      continue;
+    }
+
+    timelineEvents.push(event);
   }
 
   renderTimeGraph();
@@ -158,6 +171,7 @@ function newBucket(buckets: Bucket[], event: TimelineEvent, kind: BucketKind): B
     rightLeg: false,
     clients: event.clientId ? [event.clientId] : [],
     seqs: event.seq ? [event.seq] : [],
+    row: 0,
   };
 
   buckets.push(bucket);
@@ -245,45 +259,36 @@ function buildBuckets(): Bucket[] {
   return buckets;
 }
 
-function clusterBuckets(buckets: Bucket[]): Bucket[][] {
+function bucketExtent(bucket: Bucket, x: (tick: number) => number) {
+  const left = x(bucket.start);
+  const right = Math.max(x(bucket.end), left + 12);
+
+  return { left, right, from: left - LEG_DX, to: right + (bucket.rightLeg ? LEG_DX : 0) };
+}
+
+function assignRows(buckets: Bucket[], x: (tick: number) => number) {
   const byNode = new Map<string, Bucket[]>();
 
   for (const bucket of buckets) {
     byNode.set(bucket.node, [...(byNode.get(bucket.node) ?? []), bucket]);
   }
 
-  const clusters: Bucket[][] = [];
-
   for (const nodeBuckets of byNode.values()) {
     nodeBuckets.sort((a, b) => a.start - b.start || a.end - b.end);
-    let current: Bucket[] = [];
-    let currentEnd = -Infinity;
+    const rowEnds: number[] = [];
 
     for (const bucket of nodeBuckets) {
-      if (current.length > 0 && bucket.start < currentEnd) {
-        current.push(bucket);
-        currentEnd = Math.max(currentEnd, bucket.end);
-        continue;
+      const extent = bucketExtent(bucket, x);
+      let row = rowEnds.findIndex((end) => extent.from - BUCKET_MARGIN > end);
+
+      if (row === -1) {
+        row = rowEnds.length;
       }
 
-      if (current.length > 0) {
-        clusters.push(current);
-      }
-
-      current = [bucket];
-      currentEnd = bucket.end;
-    }
-
-    if (current.length > 0) {
-      clusters.push(current);
+      rowEnds[row] = extent.to;
+      bucket.row = row;
     }
   }
-
-  for (const cluster of clusters) {
-    cluster.sort((a, b) => (a.seqs[0] ?? Infinity) - (b.seqs[0] ?? Infinity));
-  }
-
-  return clusters;
 }
 
 function escapeXml(text: string) {
@@ -313,7 +318,9 @@ function renderTimeGraph() {
 
   const base = timelineBaseTick;
   const last = timelineLastTick;
-  const clusters = clusterBuckets(buildBuckets());
+  const x = (tick: number) => LEFT_PAD + (tick - base) * TICK_WIDTH;
+  const buckets = buildBuckets();
+  assignRows(buckets, x);
 
   const nodeIds = new Set<string>();
   for (const sums of timelineSums.values()) {
@@ -322,16 +329,18 @@ function renderTimeGraph() {
     }
   }
 
-  const laneHeight = LANE_TOP + BUCKET_HEIGHT + LANE_BOTTOM;
-  const lanes: Lane[] = [...nodeIds].sort().map((nodeId, index) => ({
-    id: nodeId,
-    label: nodeId,
-    axisY: index * laneHeight + LANE_TOP + BUCKET_HEIGHT,
-    height: laneHeight,
-  }));
+  const lanes: Lane[] = [];
+  let y = 0;
 
-  const totalHeight = lanes.length * laneHeight + 4;
-  const x = (tick: number) => LEFT_PAD + (tick - base) * TICK_WIDTH;
+  for (const nodeId of [...nodeIds].sort()) {
+    const rows = Math.max(1, ...buckets.filter((bucket) => bucket.node === nodeId).map((bucket) => bucket.row + 1));
+    const height = LANE_TOP + rows * (BUCKET_HEIGHT + ROW_GAP) + LINE_GAP - ROW_GAP + LANE_BOTTOM;
+
+    lanes.push({ id: nodeId, label: nodeId, axisY: y + height - LANE_BOTTOM, height });
+    y += height;
+  }
+
+  const totalHeight = y + 4;
   const width = x(last) + TICK_WIDTH;
   const laneById = new Map(lanes.map((lane) => [lane.id, lane]));
 
@@ -358,6 +367,24 @@ function renderTimeGraph() {
     }
   }
 
+  for (const lane of lanes) {
+    let downFrom: number | null = null;
+
+    for (let tick = base; tick <= last + 1; tick++) {
+      const isDown = tick <= last && (timelineDisabled.get(tick) ?? []).includes(lane.id);
+
+      if (isDown && downFrom === null) {
+        downFrom = tick;
+      }
+
+      if (!isDown && downFrom !== null) {
+        const end = tick <= last ? x(tick) : x(last) + TICK_WIDTH * 0.6;
+        parts.push(`<rect class="tg-down" x="${x(downFrom) - 10}" y="${lane.axisY - (lane.height - LANE_BOTTOM)}" width="${end - x(downFrom) + 10}" height="${lane.height}"/>`);
+        downFrom = null;
+      }
+    }
+  }
+
   for (const edge of timelineEdges.values()) {
     const from = laneById.get(edge.fromLane);
     const to = laneById.get(edge.toLane);
@@ -371,11 +398,11 @@ function renderTimeGraph() {
     );
   }
 
-  for (const cluster of clusters) {
-    const lane = laneById.get(cluster[0].node);
+  for (const bucket of buckets) {
+    const lane = laneById.get(bucket.node);
 
     if (lane) {
-      parts.push(renderCluster(cluster, lane, x));
+      parts.push(renderBucket(bucket, lane, x));
     }
   }
 
@@ -396,66 +423,31 @@ function bucketColor(bucket: Bucket) {
   return bucket.clients.length > 0 ? clientColor(bucket.clients[0]) : TIMELINE_NEUTRAL_COLOR;
 }
 
-function renderCluster(cluster: Bucket[], lane: Lane, x: (tick: number) => number): string {
-  const flatY = lane.axisY;
+function renderBucket(bucket: Bucket, lane: Lane, x: (tick: number) => number): string {
+  const flatY = lane.axisY - LINE_GAP - bucket.row * (BUCKET_HEIGHT + ROW_GAP);
   const tipY = flatY - BUCKET_HEIGHT;
-  const legLength = Math.hypot(LEG_DX, BUCKET_HEIGHT);
-  const mixed = new Set(cluster.map(bucketColor)).size > 1;
-  const period = DASH * cluster.length;
-  const parts: string[] = [];
-  const labels = new Map<string, { x: number; text: string; colors: Set<string> }>();
+  const { left, right } = bucketExtent(bucket, x);
+  const color = bucketColor(bucket);
 
-  cluster.forEach((bucket, index) => {
-    const left = x(bucket.start);
-    const right = Math.max(x(bucket.end), left + 12);
-    const color = bucketColor(bucket);
+  const outline =
+    `M ${left - LEG_DX} ${tipY} L ${left} ${flatY} L ${right} ${flatY}` +
+    (bucket.rightLeg ? ` L ${right + LEG_DX} ${tipY}` : "");
 
-    const outline =
-      `M ${left - LEG_DX} ${tipY} L ${left} ${flatY} L ${right} ${flatY}` +
-      (bucket.rightLeg ? ` L ${right + LEG_DX} ${tipY}` : "");
-    const offset = (((left - legLength - index * DASH) % period) + period) % period;
-    const dash = mixed ? ` stroke-dasharray="${DASH} ${period - DASH}" stroke-dashoffset="${offset}"` : "";
+  const sum = bucket.processedAt !== undefined ? sumOfNode(bucket.node, bucket.processedAt) : undefined;
+  const seqText = bucket.seqs.length > 0 ? ` #${bucket.seqs.join("/")}` : "";
+  const what =
+    bucket.kind === "write" ? "Write" : bucket.kind === "read" ? "Read" : bucket.kind === "merge" ? "Merge" : "Gossip";
+  const detail = `${what}${seqText}, arrives t${bucket.start}${bucket.processedAt !== undefined ? `, processed t${bucket.processedAt}` : ""}${bucket.rightLeg ? `, sends t${bucket.end}` : ""}${sum !== undefined ? `, sum ${sum}` : ""}`;
 
-    const sum = bucket.processedAt !== undefined ? sumOfNode(bucket.node, bucket.processedAt) : undefined;
-    const seqText = bucket.seqs.length > 0 ? ` #${bucket.seqs.join("/")}` : "";
-    const what =
-      bucket.kind === "write" ? "Write" : bucket.kind === "read" ? "Read" : bucket.kind === "merge" ? "Merge" : "Gossip";
-    const detail = `${what}${seqText}, arrives t${bucket.start}${bucket.processedAt !== undefined ? `, processed t${bucket.processedAt}` : ""}${bucket.rightLeg ? `, sends t${bucket.end}` : ""}${sum !== undefined ? `, sum ${sum}` : ""}`;
-
-    parts.push(
-      `<path d="${outline}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round"${dash}><title>${escapeXml(detail)}</title></path>`,
-    );
-
-    if (bucket.processedAt !== undefined) {
-      parts.push(`<circle cx="${x(bucket.processedAt)}" cy="${flatY}" r="4" fill="${color}"/>`);
-    }
-
-    if (sum !== undefined) {
-      const labelX = (left + right) / 2;
-      const key = `${Math.round(labelX)}|${sum}`;
-      const label = labels.get(key) ?? { x: labelX, text: `${sum}`, colors: new Set<string>() };
-      label.colors.add(color);
-      labels.set(key, label);
-    }
-  });
-
-  const placed: { x: number; row: number }[] = [];
-
-  for (const label of labels.values()) {
-    let row = 0;
-
-    while (placed.some((item) => item.row === row && Math.abs(item.x - label.x) < LABEL_OVERLAP)) {
-      row++;
-    }
-
-    placed.push({ x: label.x, row });
-    const fill = label.colors.size === 1 ? [...label.colors][0] : "#202938";
-    parts.push(
-      `<text class="tg-bucket-sum" x="${label.x}" y="${flatY - 9 - row * LABEL_ROW}" text-anchor="middle" fill="${fill}">${label.text}</text>`,
-    );
-  }
-
-  return `<g class="tg-bucket">${parts.join("")}</g>`;
+  return [
+    `<g class="tg-bucket">`,
+    `<path d="${outline}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round"><title>${escapeXml(detail)}</title></path>`,
+    bucket.processedAt !== undefined ? `<circle cx="${x(bucket.processedAt)}" cy="${flatY}" r="4" fill="${color}"/>` : "",
+    sum !== undefined
+      ? `<text class="tg-bucket-sum" x="${(left + right) / 2}" y="${flatY - 9}" text-anchor="middle" fill="${color}">${sum}</text>`
+      : "",
+    "</g>",
+  ].join("");
 }
 
 function sumOfNode(nodeId: string, tick: number): number | undefined {

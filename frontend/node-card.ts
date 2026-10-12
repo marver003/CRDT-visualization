@@ -2,11 +2,12 @@
 interface NodeCardData {
   nodeId: string;
   state: Record<string, number>;
+  disabled?: boolean;
 }
 
-function createNodeCard({ nodeId, state }: NodeCardData): HTMLElement {
+function createNodeCard({ nodeId, state, disabled = false }: NodeCardData): HTMLElement {
   const card = document.createElement("article");
-  card.className = "node-card";
+  card.className = disabled ? "node-card node-card--disabled" : "node-card";
   card.dataset.nodeId = nodeId;
 
   const stateEntries = Object.entries(state);
@@ -28,7 +29,7 @@ function createNodeCard({ nodeId, state }: NodeCardData): HTMLElement {
       <strong>Node ${nodeId}</strong>
       <span class="node-card-sum" title="Counter value (sum of state)">${total}</span>
       <div class="node-card-actions">
-        <button class="node-card-action node-card-remove" type="button" data-action="remove" aria-label="Remove node ${nodeId}" title="Remove node">&#128465;</button>
+        <button class="node-card-action node-card-power${disabled ? " node-card-power--enable" : ""}" type="button" data-action="toggle-power" aria-label="${disabled ? "Enable" : "Disable"} node ${nodeId}" title="${disabled ? "Enable" : "Disable"} node"><svg class="node-card-power-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
       </div>
     </div>
     <div class="node-card-body">
@@ -41,8 +42,8 @@ function createNodeCard({ nodeId, state }: NodeCardData): HTMLElement {
   `;
 
   card
-    .querySelector<HTMLButtonElement>('[data-action="remove"]')
-    ?.addEventListener("click", () => removeNode(nodeId));
+    .querySelector<HTMLButtonElement>('[data-action="toggle-power"]')
+    ?.addEventListener("click", () => toggleNodePower(nodeId, disabled));
 
   return card;
 }

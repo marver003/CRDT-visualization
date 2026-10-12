@@ -347,7 +347,7 @@ button {
   pointer-events: none;
 }
 
-body.is-animating .node-card-remove,
+body.is-animating .node-card-power,
 body.is-animating #reset-button,
 body.is-animating .create-node-toggle,
 body.is-animating .create-node-button {

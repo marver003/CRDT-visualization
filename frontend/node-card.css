@@ -51,9 +51,33 @@
   background: var(--bg);
 }
 
-.node-card-remove {
-  color: var(--red);
-  font-size: 16px;
+.node-card-power {
+  color: #3f4a5a;
+}
+
+.node-card-power--enable {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.node-card-power-icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.node-card--disabled {
+  border-style: dashed;
+  border-color: #98a2b3;
+  background: #e9ecf1;
+}
+
+.node-card--disabled strong,
+.node-card--disabled .node-card-sum,
+.node-card--disabled .node-card-body {
+  opacity: 0.45;
 }
 
 /* State vector, transposed: one row per replica (ID + its count) instead of
