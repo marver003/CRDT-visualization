@@ -37,6 +37,7 @@ type IncrementOperation struct {
 	RequestId string
 	Seq       uint64
 	Element   string
+	Amount    uint64
 }
 
 type ReadOperation struct {
@@ -98,7 +99,7 @@ func (op BaseOperation) GetStepId() types.StepId {
 	return op.StepId
 }
 
-func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.ReplicaId, kind RequestKind, element string) error {
+func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.ReplicaId, kind RequestKind, element string, amount uint64) error {
 	client, ok := s.Clients[clientId]
 	if !ok {
 		return ErrClientNotFound
@@ -120,6 +121,7 @@ func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.R
 	msg := s.NewMessage(messageKind, ClientAt(clientId), NodeAt(replicaId), deliverAt)
 	msg.RequestId = uuid.NewString()
 	msg.Element = element
+	msg.Amount = amount
 	msg.ClientId = clientId
 	s.RequestSeq++
 	msg.Seq = s.RequestSeq
@@ -161,6 +163,7 @@ func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
 		RequestId:     op.Message.RequestId,
 		Seq:           op.Message.Seq,
 		Element:       op.Message.Element,
+		Amount:        op.Message.Amount,
 	})
 
 	return nil
@@ -171,7 +174,7 @@ func (op IncrementOperation) Execute(sim *Simulator) error {
 		return nil
 	}
 
-	if err := sim.Store.WriteNode(op.ReplicaId, op.Element); err != nil {
+	if err := sim.Store.WriteNode(op.ReplicaId, op.Element, op.Amount); err != nil {
 		return err
 	}
 

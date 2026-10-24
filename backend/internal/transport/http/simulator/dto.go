@@ -10,6 +10,7 @@ type reqClientRequest struct {
 	ClientId types.ClientId  `json:"clientId"`
 	NodeId   types.ReplicaId `json:"nodeId"`
 	Element  string          `json:"element,omitempty"`
+	Amount   uint64          `json:"amount,omitempty"`
 }
 
 type reqMergeNodes struct {

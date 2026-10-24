@@ -96,7 +96,6 @@ func (s *Store) GetState() (map[types.ReplicaId]map[types.ReplicaId]uint64, erro
 	return state, nil
 }
 
-// GetGSetState returns the sorted elements of every gset node
 func (s *Store) GetGSetState() (map[types.ReplicaId][]string, error) {
 	state := make(map[types.ReplicaId][]string, len(s.Nodes))
 
@@ -112,8 +111,7 @@ func (s *Store) GetGSetState() (map[types.ReplicaId][]string, error) {
 	return state, nil
 }
 
-// WriteNode applies a client write: an increment for gcounter, an add for gset
-func (s *Store) WriteNode(id types.ReplicaId, element string) error {
+func (s *Store) WriteNode(id types.ReplicaId, element string, amount uint64) error {
 	n, exists := s.Nodes[id]
 	if !exists {
 		return fmt.Errorf("node %q does not exist", id)
@@ -123,10 +121,9 @@ func (s *Store) WriteNode(id types.ReplicaId, element string) error {
 		return n.Add(element)
 	}
 
-	return n.Increment()
+	return n.IncrementBy(amount)
 }
 
-// ReadNodeElements returns the sorted gset elements of a node
 func (s *Store) ReadNodeElements(id types.ReplicaId) ([]string, error) {
 	n, exists := s.Nodes[id]
 	if !exists {

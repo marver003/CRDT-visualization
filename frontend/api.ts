@@ -64,7 +64,7 @@ async function enableNodeAPI(replicaId: string) {
   });
 }
 
-async function clientRequestAPI(path: "/write" | "/read", clientId: string, nodeId: string, element?: string) {
+async function clientRequestAPI(path: "/write" | "/read", clientId: string, nodeId: string, element?: string, amount?: number) {
   return requestAPI(path, {
     method: "POST",
     headers: {
@@ -74,12 +74,13 @@ async function clientRequestAPI(path: "/write" | "/read", clientId: string, node
       clientId,
       nodeId,
       ...(element !== undefined ? { element } : {}),
+      ...(amount !== undefined ? { amount } : {}),
     }),
   });
 }
 
-async function writeAPI(clientId: string, nodeId: string, element?: string) {
-  return clientRequestAPI("/write", clientId, nodeId, element);
+async function writeAPI(clientId: string, nodeId: string, element?: string, amount?: number) {
+  return clientRequestAPI("/write", clientId, nodeId, element, amount);
 }
 
 async function readAPI(clientId: string, nodeId: string) {

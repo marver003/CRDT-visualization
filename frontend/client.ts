@@ -11,6 +11,7 @@ interface ClientView {
   id: string;
   select: HTMLSelectElement;
   element: HTMLInputElement;
+  amount: HTMLInputElement;
   writeButton: HTMLButtonElement;
   readButton: HTMLButtonElement;
   result: HTMLElement;
@@ -39,6 +40,7 @@ function createClient(id: string): HTMLElement {
       <strong class="client-title">Client ${id}</strong>
       <select class="client-select" aria-label="Node for client ${id}"></select>
       <input class="client-element" type="text" maxlength="12" placeholder="element" autocomplete="off" aria-label="Element for client ${id}" hidden />
+      <input class="client-amount" type="number" min="1" max="1000" step="1" value="1" title="Amount to add (1-1000)" aria-label="Amount for client ${id}" />
       <div class="client-actions">
         <button class="client-button client-write" type="button" title="Send a write request">Write</button>
         <button class="client-button client-read" type="button" title="Send a read request">Read</button>
@@ -51,17 +53,20 @@ function createClient(id: string): HTMLElement {
     id,
     select: client.querySelector(".client-select") as HTMLSelectElement,
     element: client.querySelector(".client-element") as HTMLInputElement,
+    amount: client.querySelector(".client-amount") as HTMLInputElement,
     writeButton: client.querySelector(".client-write") as HTMLButtonElement,
     readButton: client.querySelector(".client-read") as HTMLButtonElement,
     result: client.querySelector(".client-result") as HTMLElement,
   };
 
   view.writeButton.addEventListener("click", () => sendClientRequest(view, writeWithElement));
-  view.element.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      sendClientRequest(view, writeWithElement);
-    }
-  });
+  for (const input of [view.element, view.amount]) {
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        sendClientRequest(view, writeWithElement);
+      }
+    });
+  }
   view.readButton.addEventListener("click", () => sendClientRequest(view, readAPI));
 
   view.select.disabled = true;
@@ -72,13 +77,24 @@ function createClient(id: string): HTMLElement {
   return client;
 }
 
-function writeWithElement(clientId: string, nodeId: string, element?: string) {
-  return writeAPI(clientId, nodeId, element);
+const MAX_COUNTER_AMOUNT = 1000;
+
+function writeWithElement(clientId: string, nodeId: string, element?: string, amount?: number) {
+  return writeAPI(clientId, nodeId, element, amount);
+}
+
+function readAmount(view: ClientView) {
+  const parsed = Math.floor(Number(view.amount.value));
+  const amount = Number.isFinite(parsed) ? Math.min(MAX_COUNTER_AMOUNT, Math.max(1, parsed)) : 1;
+
+  view.amount.value = String(amount);
+
+  return amount;
 }
 
 async function sendClientRequest(
   view: ClientView,
-  api: (clientId: string, nodeId: string, element?: string) => Promise<Response | null>,
+  api: (clientId: string, nodeId: string, element?: string, amount?: number) => Promise<Response | null>,
 ) {
   if (isAdvancing || clientLocked.get(view.id) || !view.select.value) {
     return;
@@ -91,7 +107,9 @@ async function sendClientRequest(
     return;
   }
 
-  const sent = await api(view.id, view.select.value, currentCrdt === "gset" ? element : undefined);
+  const isWrite = api === writeWithElement;
+  const amount = currentCrdt === "gcounter" && isWrite ? readAmount(view) : undefined;
+  const sent = await api(view.id, view.select.value, currentCrdt === "gset" ? element : undefined, amount);
 
   if (!sent) {
     return;
@@ -147,6 +165,7 @@ function updateClientResults(clients: ClientSnapshot[]) {
 function refreshClientControls() {
   for (const clientView of clientViews) {
     clientView.element.hidden = currentCrdt !== "gset";
+    clientView.amount.hidden = currentCrdt !== "gcounter";
 
     const blocked = !clientsHaveNodes || isAdvancing || clientLocked.get(clientView.id) === true;
 

@@ -108,7 +108,13 @@ func (h *Handler) clientRequest(w http.ResponseWriter, r *http.Request, kind sim
 		return
 	}
 
-	if err := h.Sim.SendClientRequest(req.ClientId, req.NodeId, kind, req.Element); err != nil {
+	amount, err := gcounterAmount(h.Sim.Store.CrdtType, kind, req.Amount)
+	if err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.Sim.SendClientRequest(req.ClientId, req.NodeId, kind, req.Element, amount); err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, simulator.ErrClientBusy) {
 			status = http.StatusConflict

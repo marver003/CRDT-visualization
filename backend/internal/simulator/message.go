@@ -48,6 +48,7 @@ type Message struct {
 	State     crdt.Snapshot
 	Value     uint64
 	Element   string
+	Amount    uint64
 	Elements  []string
 	SentAt    types.StepId
 	DeliverAt types.StepId

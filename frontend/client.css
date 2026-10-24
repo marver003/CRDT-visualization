@@ -100,7 +100,8 @@
   box-shadow: 0 0 0 4px rgb(21 155 152 / 16%);
 }
 
-.client-element {
+.client-element,
+.client-amount {
   height: 34px;
   padding: 0 8px;
   border: 1px solid #cbd2de;
@@ -110,7 +111,8 @@
   font-size: 14px;
 }
 
-.client-element[hidden] {
+.client-element[hidden],
+.client-amount[hidden] {
   display: none;
 }
 

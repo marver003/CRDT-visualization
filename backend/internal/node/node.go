@@ -64,7 +64,6 @@ func (n *Node) Increment() error {
 	return nil
 }
 
-// Add is GSet specific
 func (n *Node) Add(element string) error {
 	gset, ok := n.Crdt.(*crdt.GSet)
 
@@ -73,6 +72,18 @@ func (n *Node) Add(element string) error {
 	}
 
 	gset.Add(element)
+
+	return nil
+}
+
+func (n *Node) IncrementBy(amount uint64) error {
+	gcounter, ok := n.Crdt.(*crdt.GCounter)
+
+	if !ok {
+		return fmt.Errorf("Unsuccessful assertion to *crdt.GCounter")
+	}
+
+	gcounter.Add(amount)
 
 	return nil
 }
