@@ -1,7 +1,7 @@
 /** Data needed to render one node in the Nodes View. */
 interface NodeCardData {
   nodeId: string;
-  state: Record<string, number>;
+  state: Record<string, number> | string[];
   disabled?: boolean;
 }
 
@@ -10,24 +10,37 @@ function createNodeCard({ nodeId, state, disabled = false }: NodeCardData): HTML
   card.className = disabled ? "node-card node-card--disabled" : "node-card";
   card.dataset.nodeId = nodeId;
 
-  const stateEntries = Object.entries(state);
-  const total = stateEntries.reduce((sum, [, value]) => sum + value, 0);
-  const rows = stateEntries
-    .map(([replicaId, value]) => {
-      const isOwn = replicaId === nodeId;
-      return `
+  const isSet = Array.isArray(state);
+  const stateEntries = isSet ? [] : Object.entries(state);
+  const total = isSet ? 0 : stateEntries.reduce((sum, [, value]) => sum + value, 0);
+  const rows = isSet
+    ? state
+        .map(
+          (element) => `
+        <tr>
+          <td class="node-card-element" data-element="${escapeXml(element)}">${escapeXml(element)}</td>
+        </tr>
+      `,
+        )
+        .join("")
+    : stateEntries
+        .map(([replicaId, value]) => {
+          const isOwn = replicaId === nodeId;
+          return `
         <tr class="${isOwn ? "node-card-state-own" : ""}">
           <th scope="row">${replicaId}</th>
           <td data-replica-id="${replicaId}">${value}</td>
         </tr>
       `;
-    })
-    .join("");
+        })
+        .join("");
+  const hasRows = isSet ? state.length > 0 : stateEntries.length > 0;
+  const emptyText = isSet ? "No elements" : "No replica state";
 
   card.innerHTML = `
     <div class="node-card-header">
       <strong>Node ${nodeId}</strong>
-      <span class="node-card-sum" title="Counter value (sum of state)">${total}</span>
+      ${isSet ? "" : `<span class="node-card-sum" title="Counter value (sum of state)">${total}</span>`}
       <div class="node-card-actions">
         <button class="node-card-action node-card-power${disabled ? " node-card-power--enable" : ""}" type="button" data-action="toggle-power" aria-label="${disabled ? "Enable" : "Disable"} node ${nodeId}" title="${disabled ? "Enable" : "Disable"} node"><svg class="node-card-power-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg></button>
       </div>
@@ -35,7 +48,7 @@ function createNodeCard({ nodeId, state, disabled = false }: NodeCardData): HTML
     <div class="node-card-body">
       <table class="node-card-state-table">
         <tbody>
-          ${stateEntries.length > 0 ? rows : '<tr><td class="node-card-empty">No replica state</td></tr>'}
+          ${hasRows ? rows : `<tr><td class="node-card-empty">${emptyText}</td></tr>`}
         </tbody>
       </table>
     </div>

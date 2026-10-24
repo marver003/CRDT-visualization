@@ -30,10 +30,11 @@ func registerRoutes(mux *http.ServeMux, h *Handler) {
 	mux.HandleFunc("GET /state", h.locked(h.GetState))                       // state for everything
 	mux.HandleFunc("POST /write", h.locked(h.WriteRequest))
 	mux.HandleFunc("POST /read", h.locked(h.ReadRequest))
-	mux.HandleFunc("POST /merge", h.locked(h.MergeNodes)) // body should  contain sourceReplicaId and targetReplicaId
-	mux.HandleFunc("GET /steps", h.locked(h.GetSteps))    // no body
-	mux.HandleFunc("POST /step", h.locked(h.NextStep))    // no body
-	mux.HandleFunc("POST /reset", h.locked(h.Reset))      // no body
+	mux.HandleFunc("POST /merge", h.locked(h.MergeNodes))          // body should  contain sourceReplicaId and targetReplicaId
+	mux.HandleFunc("GET /steps", h.locked(h.GetSteps))             // no body
+	mux.HandleFunc("POST /step", h.locked(h.NextStep))             // no body
+	mux.HandleFunc("POST /simulator", h.locked(h.SwitchSimulator)) // body should contain crdt
+	mux.HandleFunc("POST /reset", h.locked(h.Reset))               // no body
 
 }
 

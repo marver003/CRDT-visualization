@@ -66,6 +66,23 @@ button {
   letter-spacing: -0.4px;
 }
 
+.simulator-select {
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input);
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+}
+
+body.is-animating .simulator-select {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 .layout {
   flex: 1;
   min-height: 0;

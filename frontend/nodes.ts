@@ -15,6 +15,9 @@ const createNodePopup = document.getElementById("create-node-popup") as HTMLElem
 const replicaIdField = document.getElementById("replica-id") as HTMLInputElement;
 const nodesContainer = document.getElementById("nodes-container") as HTMLElement;
 
+type CrdtKind = "gcounter" | "gset";
+
+let currentCrdt: CrdtKind = "gcounter";
 let activeNetwork: Network | null = null;
 
 let view: ViewTransform | null = null;
@@ -69,6 +72,9 @@ async function renderState() {
   const { state } = response;
   const network = createNetwork();
 
+  currentCrdt = response.crdt;
+  syncSimulatorSelect();
+
   latestSimulatorState = response;
   currentInFlight = response.inFlight ?? [];
   rememberTimelineEdges(currentInFlight);
@@ -81,9 +87,8 @@ async function renderState() {
 
   const disabledNodes = new Set(response.disabled ?? []);
 
-  for (const [nodeId, counts] of Object.entries(state)) {
-    const replicaCounts = counts as Record<string, number>;
-    const card = createNodeCard({ nodeId, state: replicaCounts, disabled: disabledNodes.has(nodeId) });
+  for (const [nodeId, nodeState] of Object.entries(state)) {
+    const card = createNodeCard({ nodeId, state: nodeState, disabled: disabledNodes.has(nodeId) });
 
     network.stage.appendChild(card);
     network.cards.push(card);

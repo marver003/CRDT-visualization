@@ -30,6 +30,7 @@
 }
 
 .node-card-actions {
+  margin-left: auto;
   display: flex;
   gap: 6px;
 }
@@ -148,4 +149,8 @@
     background: #d8f2ef;
     transform: scale(1);
   }
+}
+.node-card-state-table td.node-card-element {
+  text-align: left;
+  overflow-wrap: anywhere;
 }

@@ -47,6 +47,8 @@ type Message struct {
 	Seq       uint64
 	State     crdt.Snapshot
 	Value     uint64
+	Element   string
+	Elements  []string
 	SentAt    types.StepId
 	DeliverAt types.StepId
 }

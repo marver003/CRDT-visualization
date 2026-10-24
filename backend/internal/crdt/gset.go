@@ -3,6 +3,7 @@ package crdt
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sync"
 
 	"github.com/marver003/crdt/internal/types"
@@ -94,4 +95,19 @@ func (g *GSet) Unmarshal(data []byte) (Snapshot, error) {
 
 	return &snapshot, err
 
+}
+
+func (g *GSet) Elements() []string {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	elements := make([]string, 0, len(g.set))
+
+	for element := range g.set {
+		elements = append(elements, element)
+	}
+
+	slices.Sort(elements)
+
+	return elements
 }

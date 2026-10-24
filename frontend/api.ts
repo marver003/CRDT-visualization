@@ -64,7 +64,7 @@ async function enableNodeAPI(replicaId: string) {
   });
 }
 
-async function clientRequestAPI(path: "/write" | "/read", clientId: string, nodeId: string) {
+async function clientRequestAPI(path: "/write" | "/read", clientId: string, nodeId: string, element?: string) {
   return requestAPI(path, {
     method: "POST",
     headers: {
@@ -73,12 +73,13 @@ async function clientRequestAPI(path: "/write" | "/read", clientId: string, node
     body: JSON.stringify({
       clientId,
       nodeId,
+      ...(element !== undefined ? { element } : {}),
     }),
   });
 }
 
-async function writeAPI(clientId: string, nodeId: string) {
-  return clientRequestAPI("/write", clientId, nodeId);
+async function writeAPI(clientId: string, nodeId: string, element?: string) {
+  return clientRequestAPI("/write", clientId, nodeId, element);
 }
 
 async function readAPI(clientId: string, nodeId: string) {
@@ -110,6 +111,16 @@ async function executeNextStepAPI() {
 
 async function getStateAPI<T>() {
   return requestJSON<T>("/state");
+}
+
+async function switchSimulatorAPI(crdt: string) {
+  return requestAPI("/simulator", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ crdt }),
+  });
 }
 
 async function resetAPI() {

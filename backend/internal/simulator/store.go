@@ -96,6 +96,51 @@ func (s *Store) GetState() (map[types.ReplicaId]map[types.ReplicaId]uint64, erro
 	return state, nil
 }
 
+// GetGSetState returns the sorted elements of every gset node
+func (s *Store) GetGSetState() (map[types.ReplicaId][]string, error) {
+	state := make(map[types.ReplicaId][]string, len(s.Nodes))
+
+	for id := range s.Nodes {
+		elements, err := s.ReadNodeElements(id)
+		if err != nil {
+			return nil, err
+		}
+
+		state[id] = elements
+	}
+
+	return state, nil
+}
+
+// WriteNode applies a client write: an increment for gcounter, an add for gset
+func (s *Store) WriteNode(id types.ReplicaId, element string) error {
+	n, exists := s.Nodes[id]
+	if !exists {
+		return fmt.Errorf("node %q does not exist", id)
+	}
+
+	if s.CrdtType == types.GSetType {
+		return n.Add(element)
+	}
+
+	return n.Increment()
+}
+
+// ReadNodeElements returns the sorted gset elements of a node
+func (s *Store) ReadNodeElements(id types.ReplicaId) ([]string, error) {
+	n, exists := s.Nodes[id]
+	if !exists {
+		return nil, fmt.Errorf("node %q does not exist", id)
+	}
+
+	gset, ok := n.Crdt.(*crdt.GSet)
+	if !ok {
+		return nil, fmt.Errorf("elements are only supported for %q, simulator runs %q", types.GSetType, s.CrdtType)
+	}
+
+	return gset.Elements(), nil
+}
+
 // IncrementNodeCounter increments gcounter and returns its snapshot
 func (s *Store) IncrementNodeCounter(id types.ReplicaId) (crdt.Snapshot, error) {
 	n, exists := s.Nodes[id]

@@ -4,6 +4,7 @@ type Step = {
   replicaId?: string;
   clientId?: string;
   seq?: number;
+  element?: string;
   from?: string;
   to?: string;
 };
@@ -78,6 +79,13 @@ function hasStateChanged(previousState: SimulatorState, card: HTMLElement, nodeI
     return false;
   }
 
+  if (Array.isArray(previousCounts)) {
+    const known = new Set(previousCounts);
+    const shown = Array.from(card.querySelectorAll<HTMLElement>("[data-element]"));
+
+    return shown.length !== previousCounts.length || shown.some((cell) => !known.has(cell.dataset.element ?? ""));
+  }
+
   return Array.from(card.querySelectorAll<HTMLElement>("[data-replica-id]")).some(
     (cell) => previousCounts[cell.dataset.replicaId ?? ""] !== Number(cell.textContent),
   );
@@ -112,15 +120,25 @@ function highlightReceivedState(previousState: SimulatorState, nodeId: string) {
   const previousCounts = previousState.state[nodeId] ?? {};
 
   card.classList.add("node-card--receiving");
-  for (const cell of card.querySelectorAll<HTMLElement>("[data-replica-id]")) {
-    const replicaId = cell.dataset.replicaId;
-    const currentValue = Number(cell.textContent);
 
-    if (replicaId && previousCounts[replicaId] !== currentValue) {
-      cell.classList.add("node-card-value-changed");
+  if (Array.isArray(previousCounts)) {
+    const known = new Set(previousCounts);
+
+    for (const cell of card.querySelectorAll<HTMLElement>("[data-element]")) {
+      if (!known.has(cell.dataset.element ?? "")) {
+        cell.classList.add("node-card-value-changed");
+      }
+    }
+  } else {
+    for (const cell of card.querySelectorAll<HTMLElement>("[data-replica-id]")) {
+      const replicaId = cell.dataset.replicaId;
+      const currentValue = Number(cell.textContent);
+
+      if (replicaId && previousCounts[replicaId] !== currentValue) {
+        cell.classList.add("node-card-value-changed");
+      }
     }
   }
-
   window.setTimeout(
     () => card.classList.remove("node-card--receiving"),
     gossipReceiveAnimationDuration() + valueChangeHighlightDuration(),

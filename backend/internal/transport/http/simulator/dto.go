@@ -9,6 +9,7 @@ type reqCreateNode struct {
 type reqClientRequest struct {
 	ClientId types.ClientId  `json:"clientId"`
 	NodeId   types.ReplicaId `json:"nodeId"`
+	Element  string          `json:"element,omitempty"`
 }
 
 type reqMergeNodes struct {
@@ -16,12 +17,17 @@ type reqMergeNodes struct {
 	TargetId types.ReplicaId `json:"target-id"`
 }
 
+type reqSwitchSimulator struct {
+	Crdt types.CrdtType `json:"crdt"`
+}
+
 type respGetState struct {
-	Now      types.StepId                                   `json:"now"`
-	State    map[types.ReplicaId]map[types.ReplicaId]uint64 `json:"state"`
-	Disabled []types.ReplicaId                              `json:"disabled"`
-	Clients  []respClient                                   `json:"clients"`
-	InFlight []respMessage                                  `json:"inFlight"`
+	Crdt     types.CrdtType    `json:"crdt"`
+	Now      types.StepId      `json:"now"`
+	State    any               `json:"state"`
+	Disabled []types.ReplicaId `json:"disabled"`
+	Clients  []respClient      `json:"clients"`
+	InFlight []respMessage     `json:"inFlight"`
 }
 
 type respClient struct {
@@ -31,10 +37,11 @@ type respClient struct {
 }
 
 type respClientResult struct {
-	Kind   string          `json:"kind"`
-	NodeId types.ReplicaId `json:"nodeId"`
-	Value  uint64          `json:"value"`
-	At     types.StepId    `json:"at"`
+	Kind     string          `json:"kind"`
+	NodeId   types.ReplicaId `json:"nodeId"`
+	Value    uint64          `json:"value"`
+	Elements []string        `json:"elements,omitempty"`
+	At       types.StepId    `json:"at"`
 }
 
 type respEndpoint struct {
@@ -64,6 +71,7 @@ type respStep struct {
 	ReplicaId types.ReplicaId `json:"replicaId,omitempty"`
 	ClientId  types.ClientId  `json:"clientId,omitempty"`
 	Seq       uint64          `json:"seq,omitempty"`
+	Element   string          `json:"element,omitempty"`
 
 	From types.ReplicaId `json:"from,omitempty"`
 	To   types.ReplicaId `json:"to,omitempty"`

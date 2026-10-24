@@ -15,7 +15,12 @@
   <body>
     <div class="app">
       <header class="header">
-        <h1>G-Counter Simulator</h1>
+        <div class="simulator-menu">
+          <select id="simulator-select" class="simulator-select" aria-label="Simulator type">
+            <option value="gcounter" selected>G-Counter Simulator</option>
+            <option value="gset">G-Set Simulator</option>
+          </select>
+        </div>
         <div class="header-controls">
           <!-- Drives how/when the pending step queue drains: Manual leaves it
                to "Next Step" clicks, Auto-play drains continuously at the

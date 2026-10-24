@@ -99,3 +99,21 @@
   border-color: var(--teal);
   box-shadow: 0 0 0 4px rgb(21 155 152 / 16%);
 }
+
+.client-element {
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid #cbd2de;
+  border-radius: 5px;
+  background: var(--input);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.client-element[hidden] {
+  display: none;
+}
+
+.client-result {
+  overflow-wrap: anywhere;
+}

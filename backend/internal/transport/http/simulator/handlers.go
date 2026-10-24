@@ -3,6 +3,7 @@ package simhttp
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strings"
@@ -13,11 +14,14 @@ import (
 	"github.com/marver003/crdt/internal/types"
 )
 
+// NewSimFunc builds a fresh simulator of the given CRDT type
+type NewSimFunc func(crdtType types.CrdtType) (*simulator.Simulator, error)
+
 // Handler holds shared dependencies for all HTTP handlers.
 type Handler struct {
 	mu     sync.Mutex
 	Sim    *simulator.Simulator
-	newSim func() (*simulator.Simulator, error)
+	newSim NewSimFunc
 }
 
 func (h *Handler) locked(next http.HandlerFunc) http.HandlerFunc {
@@ -29,7 +33,7 @@ func (h *Handler) locked(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func NewHandler(s *simulator.Simulator, newSim func() (*simulator.Simulator, error)) *Handler {
+func NewHandler(s *simulator.Simulator, newSim NewSimFunc) *Handler {
 	return &Handler{Sim: s, newSim: newSim}
 }
 
@@ -99,7 +103,12 @@ func (h *Handler) clientRequest(w http.ResponseWriter, r *http.Request, kind sim
 		return
 	}
 
-	if err := h.Sim.SendClientRequest(req.ClientId, req.NodeId, kind); err != nil {
+	if err := validateGSetWrite(h.Sim.Store.CrdtType, kind, req.Element); err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := h.Sim.SendClientRequest(req.ClientId, req.NodeId, kind, req.Element); err != nil {
 		status := http.StatusBadRequest
 		if errors.Is(err, simulator.ErrClientBusy) {
 			status = http.StatusConflict
@@ -133,13 +142,14 @@ func (h *Handler) MergeNodes(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
-	state, err := h.Sim.Store.GetState()
+	state, err := stateFor(h.Sim.Store)
 	if err != nil {
 		helper.WriteError(w, http.StatusNotImplemented, err.Error())
 		return
 	}
 
 	resp := &respGetState{
+		Crdt:     h.Sim.Store.CrdtType,
 		Now:      h.Sim.Now,
 		State:    state,
 		Disabled: disabledNodes(h.Sim.Store),
@@ -152,10 +162,11 @@ func (h *Handler) GetState(w http.ResponseWriter, r *http.Request) {
 
 		if client.LastResult != nil {
 			item.Result = &respClientResult{
-				Kind:   string(client.LastResult.Kind),
-				NodeId: client.LastResult.ReplicaId,
-				Value:  client.LastResult.Value,
-				At:     client.LastResult.At,
+				Kind:     string(client.LastResult.Kind),
+				NodeId:   client.LastResult.ReplicaId,
+				Value:    client.LastResult.Value,
+				Elements: client.LastResult.Elements,
+				At:       client.LastResult.At,
 			}
 		}
 
@@ -209,10 +220,11 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 			case simulator.IncrementOperation:
 				steps = append(steps, respStep{
 					StepId:    op.StepId,
-					Type:      "increment",
+					Type:      writeStepType(h.Sim.Store.CrdtType),
 					ReplicaId: op.ReplicaId,
 					ClientId:  op.ClientId,
 					Seq:       op.Seq,
+					Element:   op.Element,
 				})
 
 			case simulator.ReadOperation:
@@ -330,13 +342,31 @@ func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sim, err := h.newSim()
+	sim, err := h.newSim(h.Sim.Store.CrdtType)
 	if err != nil {
 		helper.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	h.Sim = sim
+
+	helper.WriteOkNoContent(w)
+}
+
+func (h *Handler) SwitchSimulator(w http.ResponseWriter, r *http.Request) {
+	var req reqSwitchSimulator
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		helper.WriteError(w, http.StatusBadRequest, `Request body must be JSON with "crdt" field`)
+		return
+	}
+
+	if req.Crdt != types.GCounterType && req.Crdt != types.GSetType {
+		helper.WriteError(w, http.StatusBadRequest, fmt.Sprintf("Unsupported crdt %q", req.Crdt))
+		return
+	}
+
+	h.Sim = simulator.New(req.Crdt)
 
 	helper.WriteOkNoContent(w)
 }

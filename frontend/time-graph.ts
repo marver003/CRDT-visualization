@@ -57,6 +57,7 @@ const timeGraphWidget = document.querySelector(".time-graph-widget") as HTMLElem
 let timelineEvents: TimelineEvent[] = [];
 const timelineEdges = new Map<string, TimelineEdge>();
 const timelineSums = new Map<number, Record<string, number>>();
+const timelineSets = new Map<number, Record<string, string[]>>();
 const timelineDisabled = new Map<number, string[]>();
 let timelineBaseTick: number | null = null;
 let timelineRecording = false;
@@ -66,6 +67,7 @@ function resetTimeGraph() {
   timelineEvents = [];
   timelineEdges.clear();
   timelineSums.clear();
+  timelineSets.clear();
   timelineDisabled.clear();
   timelineBaseTick = null;
   timelineLastTick = 0;
@@ -81,8 +83,10 @@ function syncTimelinePreview() {
   const { now, state, disabled } = latestSimulatorState;
 
   timelineSums.clear();
+  timelineSets.clear();
   timelineDisabled.clear();
   timelineSums.set(now, sumsOf(state));
+  timelineSets.set(now, setsOf(state));
   timelineDisabled.set(now, disabled ?? []);
   timelineBaseTick = now;
   timelineLastTick = now;
@@ -93,10 +97,36 @@ function sumsOf(state: SimulatorState["state"]): Record<string, number> {
   const sums: Record<string, number> = {};
 
   for (const [nodeId, counts] of Object.entries(state)) {
-    sums[nodeId] = Object.values(counts).reduce((total, value) => total + value, 0);
+    sums[nodeId] = Array.isArray(counts)
+      ? counts.length
+      : Object.values(counts).reduce((total, value) => total + value, 0);
   }
 
   return sums;
+}
+
+function setsOf(state: SimulatorState["state"]): Record<string, string[]> {
+  const sets: Record<string, string[]> = {};
+
+  for (const [nodeId, value] of Object.entries(state)) {
+    if (Array.isArray(value)) {
+      sets[nodeId] = value;
+    }
+  }
+
+  return sets;
+}
+
+function gainedElements(nodeId: string, tick: number): string[] {
+  const now = timelineSets.get(tick)?.[nodeId];
+
+  if (!now) {
+    return [];
+  }
+
+  const known = new Set(timelineSets.get(tick - 1)?.[nodeId] ?? []);
+
+  return now.filter((element) => !known.has(element));
 }
 
 function rememberTimelineEdges(messages: InFlightMessage[]) {
@@ -120,14 +150,17 @@ function recordTimelineTick(before: SimulatorState, after: SimulatorState, batch
   if (!timelineRecording) {
     timelineRecording = true;
     timelineSums.clear();
+  timelineSets.clear();
     timelineDisabled.clear();
     timelineBaseTick = before.now;
     timelineSums.set(before.now, sumsOf(before.state));
+    timelineSets.set(before.now, setsOf(before.state));
     timelineDisabled.set(before.now, before.disabled ?? []);
   }
 
   const tick = after.now;
   timelineSums.set(tick, sumsOf(after.state));
+  timelineSets.set(tick, setsOf(after.state));
   timelineDisabled.set(tick, after.disabled ?? []);
   timelineLastTick = tick;
 
@@ -218,7 +251,8 @@ function buildBuckets(): Bucket[] {
         newBucket(buckets, event, "read");
         break;
 
-      case "increment": {
+      case "increment":
+      case "add": {
         const bucket = findBucket(buckets, event.node, "write", seq) ?? newBucket(buckets, event, "write");
         bucket.processedAt = event.tick;
         bucket.end = Math.max(bucket.end, event.tick);
@@ -454,18 +488,22 @@ function renderBucket(bucket: Bucket, lane: Lane, x: (tick: number) => number): 
     `M ${left - LEG_DX} ${tipY} L ${left} ${flatY} L ${right} ${flatY}` +
     (bucket.rightLeg ? ` L ${right + LEG_DX} ${tipY}` : "");
 
-  const sum = bucket.processedAt !== undefined ? sumOfNode(bucket.node, bucket.processedAt) : undefined;
+  const isSet = currentCrdt === "gset";
+  const sum = !isSet && bucket.processedAt !== undefined ? sumOfNode(bucket.node, bucket.processedAt) : undefined;
+  const gained = isSet && bucket.processedAt !== undefined ? gainedElements(bucket.node, bucket.processedAt) : [];
+  const gainedLabel =
+    gained.length === 1 ? `+${gained[0]}` : gained.length > 1 ? `+${gained.length}` : undefined;
   const seqText = bucket.seqs.length > 0 ? ` #${bucket.seqs.join("/")}` : "";
   const what =
     bucket.kind === "write" ? "Write" : bucket.kind === "read" ? "Read" : bucket.kind === "merge" ? "Merge" : "Gossip";
-  const detail = `${what}${seqText}, arrives t${bucket.start}${bucket.processedAt !== undefined ? `, processed t${bucket.processedAt}` : ""}${bucket.rightLeg ? `, sends t${bucket.end}` : ""}${sum !== undefined ? `, sum ${sum}` : ""}`;
+  const detail = `${what}${seqText}, arrives t${bucket.start}${bucket.processedAt !== undefined ? `, processed t${bucket.processedAt}` : ""}${bucket.rightLeg ? `, sends t${bucket.end}` : ""}${sum !== undefined ? `, sum ${sum}` : ""}${gained.length > 0 ? `, adds ${gained.join(", ")}` : ""}`;
 
   return [
     `<g class="tg-bucket">`,
     `<path d="${outline}" fill="none" stroke="${color}" stroke-width="3" stroke-linejoin="round"><title>${escapeXml(detail)}</title></path>`,
     bucket.processedAt !== undefined ? `<circle cx="${x(bucket.processedAt)}" cy="${flatY}" r="4" fill="${color}"/>` : "",
-    sum !== undefined
-      ? `<text class="tg-bucket-sum" x="${(left + right) / 2}" y="${flatY - 9}" text-anchor="middle" fill="${color}">${sum}</text>`
+    sum !== undefined || gainedLabel !== undefined
+      ? `<text class="tg-bucket-sum" x="${(left + right) / 2}" y="${flatY - 9}" text-anchor="middle" fill="${color}">${escapeXml(String(sum ?? gainedLabel))}</text>`
       : "",
     "</g>",
   ].join("");

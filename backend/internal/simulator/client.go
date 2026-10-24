@@ -8,6 +8,7 @@ type ClientResult struct {
 	Kind      MessageKind
 	ReplicaId types.ReplicaId
 	Value     uint64
+	Elements  []string
 	At        types.StepId
 }
 

@@ -36,6 +36,7 @@ type IncrementOperation struct {
 	ClientId  types.ClientId
 	RequestId string
 	Seq       uint64
+	Element   string
 }
 
 type ReadOperation struct {
@@ -54,6 +55,7 @@ type SendResponseOperation struct {
 	Seq       uint64
 	Kind      MessageKind
 	Value     uint64
+	Elements  []string
 }
 
 type ReceiveResponseOperation struct {
@@ -96,7 +98,7 @@ func (op BaseOperation) GetStepId() types.StepId {
 	return op.StepId
 }
 
-func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.ReplicaId, kind RequestKind) error {
+func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.ReplicaId, kind RequestKind, element string) error {
 	client, ok := s.Clients[clientId]
 	if !ok {
 		return ErrClientNotFound
@@ -117,6 +119,7 @@ func (s *Simulator) SendClientRequest(clientId types.ClientId, replicaId types.R
 	deliverAt := s.Now + s.Timing.RequestLatency
 	msg := s.NewMessage(messageKind, ClientAt(clientId), NodeAt(replicaId), deliverAt)
 	msg.RequestId = uuid.NewString()
+	msg.Element = element
 	msg.ClientId = clientId
 	s.RequestSeq++
 	msg.Seq = s.RequestSeq
@@ -157,6 +160,7 @@ func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
 		ClientId:      clientId,
 		RequestId:     op.Message.RequestId,
 		Seq:           op.Message.Seq,
+		Element:       op.Message.Element,
 	})
 
 	return nil
@@ -167,7 +171,7 @@ func (op IncrementOperation) Execute(sim *Simulator) error {
 		return nil
 	}
 
-	if _, err := sim.Store.IncrementNodeCounter(op.ReplicaId); err != nil {
+	if err := sim.Store.WriteNode(op.ReplicaId, op.Element); err != nil {
 		return err
 	}
 
@@ -204,7 +208,16 @@ func (op ReadOperation) Execute(sim *Simulator) error {
 		return nil
 	}
 
-	value, err := sim.Store.ReadNodeValue(op.ReplicaId)
+	var value uint64
+	var elements []string
+	var err error
+
+	if sim.Store.CrdtType == types.GSetType {
+		elements, err = sim.Store.ReadNodeElements(op.ReplicaId)
+	} else {
+		value, err = sim.Store.ReadNodeValue(op.ReplicaId)
+	}
+
 	if err != nil {
 		return err
 	}
@@ -217,6 +230,7 @@ func (op ReadOperation) Execute(sim *Simulator) error {
 		Seq:           op.Seq,
 		Kind:          ReadResponseMessage,
 		Value:         value,
+		Elements:      elements,
 	})
 
 	return nil
@@ -233,6 +247,7 @@ func (op SendResponseOperation) Execute(sim *Simulator) error {
 	msg.ClientId = op.ClientId
 	msg.Seq = op.Seq
 	msg.Value = op.Value
+	msg.Elements = op.Elements
 
 	sim.Queue.Enqueue(ReceiveResponseOperation{
 		BaseOperation: BaseOperation{StepId: deliverAt},
@@ -254,6 +269,7 @@ func (op ReceiveResponseOperation) Execute(sim *Simulator) error {
 		Kind:      op.Message.Kind,
 		ReplicaId: types.ReplicaId(op.Message.From.Id),
 		Value:     op.Message.Value,
+		Elements:  op.Message.Elements,
 		At:        sim.Now,
 	}
 

@@ -23,15 +23,17 @@ type ClientResult = {
   kind: "write_ack" | "read_response";
   nodeId: string;
   value: number;
+  elements?: string[];
   at: number;
 };
 
 type ClientSnapshot = { id: string; locked: boolean; result: ClientResult | null };
 
 type SimulatorState = {
+  crdt: "gcounter" | "gset";
   now: number;
   disabled?: string[];
-  state: Record<string, Record<string, number>>;
+  state: Record<string, Record<string, number> | string[]>;
   clients: ClientSnapshot[];
   inFlight: InFlightMessage[];
 };

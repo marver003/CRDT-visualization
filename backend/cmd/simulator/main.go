@@ -9,6 +9,7 @@ import (
 	"github.com/marver003/crdt/internal/config"
 	"github.com/marver003/crdt/internal/simulator"
 	simhttp "github.com/marver003/crdt/internal/transport/http/simulator"
+	"github.com/marver003/crdt/internal/types"
 )
 
 func loadConfig(path string) (*config.Simulator, error) {
@@ -33,7 +34,11 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
-	newSim := func() (*simulator.Simulator, error) {
+	newSim := func(crdtType types.CrdtType) (*simulator.Simulator, error) {
+		if crdtType != cfg.Simulator.Crdt {
+			return simulator.New(crdtType), nil
+		}
+
 		initial, err := cfg.Snapshots()
 		if err != nil {
 			return nil, err
@@ -42,7 +47,7 @@ func main() {
 		return simulator.Load(cfg.Simulator.Crdt, initial)
 	}
 
-	sim, err := newSim()
+	sim, err := newSim(cfg.Simulator.Crdt)
 	if err != nil {
 		log.Fatalf("simulator: %v", err)
 	}
