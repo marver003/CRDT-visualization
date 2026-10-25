@@ -14,15 +14,7 @@ function createNodeCard({ nodeId, state, disabled = false }: NodeCardData): HTML
   const stateEntries = isSet ? [] : Object.entries(state);
   const total = isSet ? 0 : stateEntries.reduce((sum, [, value]) => sum + value, 0);
   const rows = isSet
-    ? state
-        .map(
-          (element) => `
-        <tr>
-          <td class="node-card-element" data-element="${escapeXml(element)}">${escapeXml(element)}</td>
-        </tr>
-      `,
-        )
-        .join("")
+    ? ""
     : stateEntries
         .map(([replicaId, value]) => {
           const isOwn = replicaId === nodeId;
@@ -35,7 +27,17 @@ function createNodeCard({ nodeId, state, disabled = false }: NodeCardData): HTML
         })
         .join("");
   const hasRows = isSet ? state.length > 0 : stateEntries.length > 0;
-  const emptyText = isSet ? "No elements" : "No replica state";
+  const emptyText = "No replica state";
+  const setBody = `
+      <div class="node-card-caption">Elements</div>
+      <div class="node-card-set">{${
+        state.length > 0
+          ? ` ${(state as string[])
+              .map((element) => `<span class="node-card-element" data-element="${escapeXml(element)}">${escapeXml(element)}</span>`)
+              .join(", ")} `
+          : " "
+      }}</div>
+    `;
 
   card.innerHTML = `
     <div class="node-card-header">
@@ -46,11 +48,15 @@ function createNodeCard({ nodeId, state, disabled = false }: NodeCardData): HTML
       </div>
     </div>
     <div class="node-card-body">
-      <table class="node-card-state-table">
+      ${
+        isSet
+          ? setBody
+          : `<table class="node-card-state-table">
         <tbody>
           ${hasRows ? rows : `<tr><td class="node-card-empty">${emptyText}</td></tr>`}
         </tbody>
-      </table>
+      </table>`
+      }
     </div>
   `;
 

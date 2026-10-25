@@ -150,7 +150,38 @@
     transform: scale(1);
   }
 }
-.node-card-state-table td.node-card-element {
-  text-align: left;
+.node-card-caption {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.node-card-set {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 16px;
   overflow-wrap: anywhere;
+}
+
+.node-card-set .node-card-element {
+  border-radius: 3px;
+}
+
+.node-card-set .node-card-element.node-card-value-changed {
+  animation: node-element-changed 1s ease-out;
+  background: #d8f2ef;
+  color: #087c79;
+  font-weight: 700;
+}
+
+@keyframes node-element-changed {
+  0% {
+    background: #8ddbd5;
+  }
+
+  100% {
+    background: #d8f2ef;
+  }
 }

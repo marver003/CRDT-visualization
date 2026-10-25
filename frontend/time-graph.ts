@@ -496,8 +496,7 @@ function renderBucket(bucket: Bucket, lane: Lane, x: (tick: number) => number): 
   const isSet = currentCrdt === "gset";
   const sum = !isSet && bucket.processedAt !== undefined ? sumOfNode(bucket.node, bucket.processedAt) : undefined;
   const gained = isSet && bucket.processedAt !== undefined ? gainedElements(bucket.node, bucket.processedAt) : [];
-  const gainedLabel =
-    gained.length === 1 ? `+${gained[0]}` : gained.length > 1 ? `+${gained.length}` : undefined;
+  const gainedLabel = gained.length > 0 ? gained.join(", ") : undefined;
   const seqText = bucket.seqs.length > 0 ? ` #${bucket.seqs.join("/")}` : "";
   const what =
     bucket.kind === "write" ? "Write" : bucket.kind === "read" ? "Read" : bucket.kind === "merge" ? "Merge" : "Gossip";
