@@ -107,3 +107,23 @@
   fill: #3f4a5a;
   opacity: 0.1;
 }
+
+.time-graph-actions,
+.time-graph-zoom {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.time-graph-actions {
+  gap: 14px;
+}
+
+.time-graph-toggle:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.time-graph-widget--collapsed .time-graph-zoom {
+  display: none;
+}

@@ -37,13 +37,16 @@ type Lane = {
   height: number;
 };
 
-const TICK_WIDTH = 60;
+const TICK_WIDTH_LEVELS = [15, 20, 30, 45, 60, 90, 120];
+let tickWidthIndex = 2;
+let TICK_WIDTH = TICK_WIDTH_LEVELS[tickWidthIndex];
 const BUCKET_HEIGHT = 34;
 const LANE_TOP = 10;
 const LANE_BOTTOM = 16;
 const LINE_GAP = 10;
 const ROW_GAP = 10;
 const BUCKET_MARGIN = 8;
+const MIN_LANE_ROWS = 2;
 const LEG_DX = 14;
 const HEADER_HEIGHT = 8;
 const LEFT_PAD = 28;
@@ -52,6 +55,8 @@ const LANES_WIDTH = 52;
 const timeGraphContainer = document.getElementById("time-graph-container") as HTMLElement;
 const timeGraphLanes = document.getElementById("time-graph-lanes") as HTMLElement;
 const timeGraphToggle = document.getElementById("time-graph-toggle") as HTMLButtonElement;
+const timeGraphNarrow = document.getElementById("time-graph-narrow") as HTMLButtonElement;
+const timeGraphWiden = document.getElementById("time-graph-widen") as HTMLButtonElement;
 const timeGraphWidget = document.querySelector(".time-graph-widget") as HTMLElement;
 
 let timelineEvents: TimelineEvent[] = [];
@@ -388,7 +393,7 @@ function renderTimeGraph() {
   let y = 0;
 
   for (const nodeId of [...nodeIds].sort()) {
-    const rows = Math.max(1, ...buckets.filter((bucket) => bucket.node === nodeId).map((bucket) => bucket.row + 1));
+    const rows = Math.max(MIN_LANE_ROWS, ...buckets.filter((bucket) => bucket.node === nodeId).map((bucket) => bucket.row + 1));
     const height = LANE_TOP + rows * (BUCKET_HEIGHT + ROW_GAP) + LINE_GAP - ROW_GAP + LANE_BOTTOM;
 
     lanes.push({ id: nodeId, label: nodeId, axisY: y + height - LANE_BOTTOM, height });
@@ -518,3 +523,15 @@ timeGraphToggle.addEventListener("click", () => {
   timeGraphToggle.setAttribute("aria-expanded", String(!collapsed));
   timeGraphToggle.textContent = collapsed ? "▸" : "▾";
 });
+
+function setTickWidthIndex(index: number) {
+  tickWidthIndex = Math.min(TICK_WIDTH_LEVELS.length - 1, Math.max(0, index));
+  TICK_WIDTH = TICK_WIDTH_LEVELS[tickWidthIndex];
+  timeGraphNarrow.disabled = tickWidthIndex === 0;
+  timeGraphWiden.disabled = tickWidthIndex === TICK_WIDTH_LEVELS.length - 1;
+  renderTimeGraph();
+}
+
+timeGraphNarrow.addEventListener("click", () => setTickWidthIndex(tickWidthIndex - 1));
+timeGraphWiden.addEventListener("click", () => setTickWidthIndex(tickWidthIndex + 1));
+setTickWidthIndex(tickWidthIndex);

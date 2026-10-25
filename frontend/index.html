@@ -110,7 +110,13 @@
           <div class="time-graph-widget">
             <div class="time-graph-header">
               <h3 class="time-graph-title">Replication Timeline</h3>
-              <button id="time-graph-toggle" class="time-graph-toggle" type="button" aria-expanded="true" aria-label="Collapse timeline" title="Collapse / expand">&#9662;</button>
+              <div class="time-graph-actions">
+                <div class="time-graph-zoom" role="group" aria-label="Timeline X-axis width">
+                  <button id="time-graph-narrow" class="time-graph-toggle" type="button" aria-label="Narrow X-axis" title="Narrow X-axis">&minus;</button>
+                  <button id="time-graph-widen" class="time-graph-toggle" type="button" aria-label="Widen X-axis" title="Widen X-axis">+</button>
+                </div>
+                <button id="time-graph-toggle" class="time-graph-toggle" type="button" aria-expanded="true" aria-label="Collapse timeline" title="Collapse / expand">&#9662;</button>
+              </div>
             </div>
             <div class="time-graph-body">
               <div class="time-graph-diagram">
