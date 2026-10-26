@@ -87,3 +87,43 @@ func (n *Node) IncrementBy(amount uint64) error {
 
 	return nil
 }
+
+func (n *Node) GenerateOp(amount uint64) (crdt.CounterOp, error) {
+	counter, ok := n.Crdt.(*crdt.GCounterOp)
+
+	if !ok {
+		return crdt.CounterOp{}, fmt.Errorf("Unsuccessful assertion to *crdt.GCounterOp")
+	}
+
+	return counter.Generate(amount), nil
+}
+
+func (n *Node) ApplyOp(op crdt.CounterOp) (bool, error) {
+	counter, ok := n.Crdt.(*crdt.GCounterOp)
+
+	if !ok {
+		return false, fmt.Errorf("Unsuccessful assertion to *crdt.GCounterOp")
+	}
+
+	return counter.Apply(op), nil
+}
+
+func (n *Node) Have() (map[types.ReplicaId]uint64, error) {
+	counter, ok := n.Crdt.(*crdt.GCounterOp)
+
+	if !ok {
+		return nil, fmt.Errorf("Unsuccessful assertion to *crdt.GCounterOp")
+	}
+
+	return counter.Have(), nil
+}
+
+func (n *Node) OpsAfter(seq uint64) ([]crdt.CounterOp, error) {
+	counter, ok := n.Crdt.(*crdt.GCounterOp)
+
+	if !ok {
+		return nil, fmt.Errorf("Unsuccessful assertion to *crdt.GCounterOp")
+	}
+
+	return counter.OpsAfter(seq), nil
+}

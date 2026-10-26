@@ -28,6 +28,8 @@ func NewCrdt(id types.ReplicaId, crdtType types.CrdtType) (CRDT, error) {
 		return NewGCounter(id), nil
 	case types.GSetType:
 		return NewGSet(id), nil
+	case types.GCounterOpType:
+		return NewGCounterOp(id), nil
 	default:
 		return nil, fmt.Errorf("unsupported crdt type %q", crdtType)
 	}

@@ -4,7 +4,8 @@ type MessageKind =
   | "write_request"
   | "write_ack"
   | "read_request"
-  | "read_response";
+  | "read_response"
+  | "sync_request";
 
 type Endpoint = { kind: "node" | "client"; id: string };
 
@@ -30,10 +31,10 @@ type ClientResult = {
 type ClientSnapshot = { id: string; locked: boolean; result: ClientResult | null };
 
 type SimulatorState = {
-  crdt: "gcounter" | "gset";
+  crdt: "gcounter" | "gset" | "gcounter-op";
   now: number;
   disabled?: string[];
-  state: Record<string, Record<string, number> | string[]>;
+  state: Record<string, Record<string, number> | string[] | number>;
   clients: ClientSnapshot[];
   inFlight: InFlightMessage[];
 };

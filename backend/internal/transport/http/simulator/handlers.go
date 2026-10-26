@@ -69,9 +69,15 @@ func (h *Handler) DisableNode(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) EnableNode(w http.ResponseWriter, r *http.Request) {
 	id := types.ReplicaId(r.PathValue("replicaId"))
 
+	wasDisabled := h.Sim.Store.Disabled[id]
+
 	if err := h.Sim.Store.EnableNode(id); err != nil {
 		helper.WriteError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+
+	if wasDisabled {
+		h.Sim.OnNodeEnabled(id)
 	}
 
 	helper.WriteOkNoContent(w)
@@ -273,6 +279,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					To:       op.To,
 					ClientId: op.ClientId,
 					Seq:      op.Seq,
+					Replay:   op.Replay,
 				})
 
 			case simulator.ReceiveGossipMessageOperation:
@@ -283,6 +290,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					To:       types.ReplicaId(op.Message.To.Id),
 					ClientId: op.Message.ClientId,
 					Seq:      op.Message.Seq,
+					Replay:   op.Message.Replay,
 				})
 
 			case simulator.SendGossipAckOperation:
@@ -293,6 +301,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					To:       op.To,
 					ClientId: op.ClientId,
 					Seq:      op.Seq,
+					Replay:   op.Replay,
 				})
 
 			case simulator.ReceiveGossipAckOperation:
@@ -303,6 +312,23 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					To:       types.ReplicaId(op.Message.To.Id),
 					ClientId: op.Message.ClientId,
 					Seq:      op.Message.Seq,
+					Replay:   op.Message.Replay,
+				})
+
+			case simulator.SendSyncRequestOperation:
+				steps = append(steps, respStep{
+					StepId: op.StepId,
+					Type:   "send_sync_request",
+					From:   op.From,
+					To:     op.To,
+				})
+
+			case simulator.ReceiveSyncRequestOperation:
+				steps = append(steps, respStep{
+					StepId: op.StepId,
+					Type:   "receive_sync_request",
+					From:   types.ReplicaId(op.Message.From.Id),
+					To:     types.ReplicaId(op.Message.To.Id),
 				})
 
 			case simulator.MergeOperation:
@@ -313,6 +339,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					To:       types.ReplicaId(op.Message.To.Id),
 					ClientId: op.Message.ClientId,
 					Seq:      op.Message.Seq,
+					Replay:   op.Message.Replay,
 				})
 			}
 		}
@@ -367,7 +394,7 @@ func (h *Handler) SwitchSimulator(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Crdt != types.GCounterType && req.Crdt != types.GSetType {
+	if req.Crdt != types.GCounterType && req.Crdt != types.GSetType && req.Crdt != types.GCounterOpType {
 		helper.WriteError(w, http.StatusBadRequest, fmt.Sprintf("Unsupported crdt %q", req.Crdt))
 		return
 	}

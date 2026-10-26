@@ -27,6 +27,7 @@ type Simulator struct {
 	Store           *Store
 	Clients         map[types.ClientId]*Client
 	PendingMessages map[string]*Message
+	PendingOps      map[PendingOpKey]*PendingOp
 	Queue           *StepQueue
 	Timing          Timing
 	Now             types.StepId
@@ -38,6 +39,7 @@ func New(crdtType types.CrdtType) *Simulator {
 		Store:           NewStore(crdtType),
 		Clients:         newClients(),
 		PendingMessages: make(map[string]*Message),
+		PendingOps:      make(map[PendingOpKey]*PendingOp),
 		Queue:           NewQueue(),
 		Timing:          DefaultTiming(),
 	}

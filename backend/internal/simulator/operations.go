@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/marver003/crdt/internal/crdt"
 	"github.com/marver003/crdt/internal/types"
 )
 
@@ -70,6 +71,19 @@ type SendGossipMessageOperation struct {
 	To       types.ReplicaId
 	ClientId types.ClientId
 	Seq      uint64
+	Op       *crdt.CounterOp
+	Replay   bool
+}
+
+type SendSyncRequestOperation struct {
+	BaseOperation
+	From types.ReplicaId
+	To   types.ReplicaId
+}
+
+type ReceiveSyncRequestOperation struct {
+	BaseOperation
+	Message *Message
 }
 
 type ReceiveGossipMessageOperation struct {
@@ -88,6 +102,8 @@ type SendGossipAckOperation struct {
 	To       types.ReplicaId
 	ClientId types.ClientId
 	Seq      uint64
+	Op       *crdt.CounterOp
+	Replay   bool
 }
 
 type ReceiveGossipAckOperation struct {
@@ -174,7 +190,16 @@ func (op IncrementOperation) Execute(sim *Simulator) error {
 		return nil
 	}
 
-	if err := sim.Store.WriteNode(op.ReplicaId, op.Element, op.Amount); err != nil {
+	var counterOp *crdt.CounterOp
+
+	if sim.Store.CrdtType == types.GCounterOpType {
+		generated, err := sim.Store.GenerateNodeOp(op.ReplicaId, op.Amount)
+		if err != nil {
+			return err
+		}
+
+		counterOp = &generated
+	} else if err := sim.Store.WriteNode(op.ReplicaId, op.Element, op.Amount); err != nil {
 		return err
 	}
 
@@ -194,12 +219,17 @@ func (op IncrementOperation) Execute(sim *Simulator) error {
 			continue
 		}
 
+		if counterOp != nil {
+			sim.trackOp(id, *counterOp, op.ClientId, op.Seq)
+		}
+
 		sim.Queue.Enqueue(SendGossipMessageOperation{
 			BaseOperation: sim.After(sendDelay),
 			From:          op.ReplicaId,
 			To:            id,
 			ClientId:      op.ClientId,
 			Seq:           op.Seq,
+			Op:            counterOp,
 		})
 	}
 
@@ -290,7 +320,12 @@ func (op SendGossipMessageOperation) Execute(sim *Simulator) error {
 	msg := sim.NewMessage(GossipMessage, NodeAt(op.From), NodeAt(op.To), deliverAt)
 	msg.ClientId = op.ClientId
 	msg.Seq = op.Seq
-	msg.State = from.Crdt.GetSnapshot()
+	msg.Op = op.Op
+	msg.Replay = op.Replay
+
+	if op.Op == nil {
+		msg.State = from.Crdt.GetSnapshot()
+	}
 
 	sim.Queue.Enqueue(ReceiveGossipMessageOperation{
 		BaseOperation: BaseOperation{StepId: deliverAt},
@@ -322,7 +357,13 @@ func (op MergeOperation) Execute(sim *Simulator) error {
 
 	node := sim.Store.Nodes[types.ReplicaId(op.Message.To.Id)]
 
-	node.Crdt.Merge(op.Message.State)
+	if op.Message.Op != nil {
+		if _, err := sim.Store.ApplyNodeOp(types.ReplicaId(op.Message.To.Id), *op.Message.Op); err != nil {
+			return err
+		}
+	} else {
+		node.Crdt.Merge(op.Message.State)
+	}
 
 	sim.Queue.Enqueue(SendGossipAckOperation{
 		BaseOperation: sim.After(sendDelay),
@@ -330,6 +371,8 @@ func (op MergeOperation) Execute(sim *Simulator) error {
 		To:            types.ReplicaId(op.Message.From.Id),
 		ClientId:      op.Message.ClientId,
 		Seq:           op.Message.Seq,
+		Op:            op.Message.Op,
+		Replay:        op.Message.Replay,
 	})
 
 	return nil
@@ -344,6 +387,8 @@ func (op SendGossipAckOperation) Execute(sim *Simulator) error {
 	msg := sim.NewMessage(GossipAckMessage, NodeAt(op.From), NodeAt(op.To), deliverAt)
 	msg.ClientId = op.ClientId
 	msg.Seq = op.Seq
+	msg.Op = op.Op
+	msg.Replay = op.Replay
 
 	sim.Queue.Enqueue(ReceiveGossipAckOperation{
 		BaseOperation: BaseOperation{StepId: deliverAt},
@@ -355,6 +400,10 @@ func (op SendGossipAckOperation) Execute(sim *Simulator) error {
 
 func (op ReceiveGossipAckOperation) Execute(sim *Simulator) error {
 	sim.RemovePendingMessage(op.Message.Id)
+
+	if op.Message.Op != nil && sim.Store.IsUp(types.ReplicaId(op.Message.To.Id)) {
+		sim.ackOp(types.ReplicaId(op.Message.From.Id), *op.Message.Op)
+	}
 
 	return nil
 }

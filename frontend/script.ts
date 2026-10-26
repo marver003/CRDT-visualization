@@ -22,7 +22,7 @@ const simulatorSelect = document.getElementById(
 
 function syncSimulatorSelect() {
   simulatorSelect.value = currentCrdt;
-  document.title = `${currentCrdt === "gset" ? "G-Set" : "G-Counter"} Simulator`;
+  document.title = `${simulatorSelect.selectedOptions[0]?.textContent ?? "CRDT Simulator"}`;
 }
 
 simulatorSelect.addEventListener("change", async () => {

@@ -89,6 +89,14 @@ func decodeSnapshot(crdtType types.CrdtType, state *yaml.Node) (crdt.Snapshot, e
 
 		return &crdt.GSetSnapshot{Set: set}, nil
 
+	case types.GCounterOpType:
+		var value uint64
+		if err := decodeState(state, &value); err != nil {
+			return nil, err
+		}
+
+		return &crdt.GCounterOpSnapshot{Value: value}, nil
+
 	default:
 		return nil, fmt.Errorf("unsupported crdt type %q", crdtType)
 	}

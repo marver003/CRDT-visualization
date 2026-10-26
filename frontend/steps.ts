@@ -7,6 +7,7 @@ type Step = {
   element?: string;
   from?: string;
   to?: string;
+  replay?: boolean;
 };
 
 let isAdvancing = false;
@@ -75,8 +76,12 @@ function highlightChangedNodes(previousState: SimulatorState) {
 function hasStateChanged(previousState: SimulatorState, card: HTMLElement, nodeId: string) {
   const previousCounts = previousState.state[nodeId];
 
-  if (!previousCounts) {
+  if (previousCounts === undefined) {
     return false;
+  }
+
+  if (typeof previousCounts === "number") {
+    return previousCounts !== Number(card.querySelector("[data-op-value]")?.textContent);
   }
 
   if (Array.isArray(previousCounts)) {
@@ -121,7 +126,13 @@ function highlightReceivedState(previousState: SimulatorState, nodeId: string) {
 
   card.classList.add("node-card--receiving");
 
-  if (Array.isArray(previousCounts)) {
+  if (typeof previousCounts === "number") {
+    const cell = card.querySelector<HTMLElement>("[data-op-value]");
+
+    if (cell && previousCounts !== Number(cell.textContent)) {
+      cell.classList.add("node-card-value-changed");
+    }
+  } else if (Array.isArray(previousCounts)) {
     const known = new Set(previousCounts);
 
     for (const cell of card.querySelectorAll<HTMLElement>("[data-element]")) {

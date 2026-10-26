@@ -185,3 +185,17 @@
     background: #d8f2ef;
   }
 }
+
+.node-card-op-value {
+  color: #e5383b;
+  font-size: 40px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.node-card-op-value.node-card-value-changed {
+  animation: node-element-changed 1s ease-out;
+  background: #d8f2ef;
+  color: #087c79;
+  border-radius: 6px;
+}

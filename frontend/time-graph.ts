@@ -5,6 +5,7 @@ type TimelineEvent = {
   clientId?: string;
   seq?: number;
   from?: string;
+  replay?: boolean;
 };
 
 type TimelineEdge = {
@@ -28,6 +29,8 @@ type Bucket = {
   clients: string[];
   seqs: number[];
   row: number;
+  replay: boolean;
+  from?: string;
 };
 
 type Lane = {
@@ -102,9 +105,12 @@ function sumsOf(state: SimulatorState["state"]): Record<string, number> {
   const sums: Record<string, number> = {};
 
   for (const [nodeId, counts] of Object.entries(state)) {
-    sums[nodeId] = Array.isArray(counts)
-      ? counts.length
-      : Object.values(counts).reduce((total, value) => total + value, 0);
+    sums[nodeId] =
+      typeof counts === "number"
+        ? counts
+        : Array.isArray(counts)
+          ? counts.length
+          : Object.values(counts).reduce((total, value) => total + value, 0);
   }
 
   return sums;
@@ -136,7 +142,7 @@ function gainedElements(nodeId: string, tick: number): string[] {
 
 function rememberTimelineEdges(messages: InFlightMessage[]) {
   for (const message of messages) {
-    if (message.kind !== "gossip" || timelineEdges.has(message.id)) {
+    if ((message.kind !== "gossip" && message.kind !== "sync_request") || timelineEdges.has(message.id)) {
       continue;
     }
 
@@ -185,12 +191,15 @@ function recordTimelineTick(before: SimulatorState, after: SimulatorState, batch
 }
 
 function toTimelineEvent(tick: number, step: Step): TimelineEvent {
-  const event: TimelineEvent = { tick, type: step.type, clientId: step.clientId, seq: step.seq };
+  const event: TimelineEvent = { tick, type: step.type, clientId: step.clientId, seq: step.seq, replay: step.replay };
 
   switch (step.type) {
     case "send_gossip":
+      event.node = step.from;
+      break;
     case "send_gossip_ack":
       event.node = step.from;
+      event.from = step.to;
       break;
     case "receive_gossip":
     case "receive_gossip_ack":
@@ -209,7 +218,9 @@ function findBucket(buckets: Bucket[], node: string, kind: BucketKind, seq: numb
   for (let i = buckets.length - 1; i >= 0; i--) {
     const bucket = buckets[i];
 
-    if (bucket.node !== node || bucket.kind !== kind || bucket.seqs[0] !== seq) {
+    const sameSeq = seq === undefined ? bucket.seqs.length === 0 : bucket.seqs.includes(seq);
+
+    if (bucket.node !== node || bucket.kind !== kind || !sameSeq) {
       continue;
     }
 
@@ -231,10 +242,38 @@ function newBucket(buckets: Bucket[], event: TimelineEvent, kind: BucketKind): B
     clients: event.clientId ? [event.clientId] : [],
     seqs: event.seq ? [event.seq] : [],
     row: 0,
+    replay: event.replay ?? false,
+    from: event.from,
   };
 
   buckets.push(bucket);
   return bucket;
+}
+
+function findReplayMerge(buckets: Bucket[], node: string, from: string | undefined, tick: number, processed: boolean) {
+  for (let i = buckets.length - 1; i >= 0; i--) {
+    const bucket = buckets[i];
+
+    if (bucket.node !== node || bucket.kind !== "merge" || !bucket.replay || bucket.from !== from) {
+      continue;
+    }
+
+    if (processed ? bucket.processedAt !== undefined : bucket.start === tick) {
+      return bucket;
+    }
+  }
+
+  return undefined;
+}
+
+function addToBucket(bucket: Bucket, event: TimelineEvent) {
+  if (event.seq && !bucket.seqs.includes(event.seq)) {
+    bucket.seqs.push(event.seq);
+  }
+
+  if (event.clientId && !bucket.clients.includes(event.clientId)) {
+    bucket.clients.push(event.clientId);
+  }
 }
 
 function buildBuckets(): Bucket[] {
@@ -281,6 +320,15 @@ function buildBuckets(): Bucket[] {
       }
 
       case "send_gossip": {
+        if (event.replay) {
+          const sameTick = buckets.find((item) => item.node === event.node && item.kind === "send" && item.replay && item.start === event.tick);
+          const replayBucket = sameTick ?? newBucket(buckets, event, "send");
+
+          addToBucket(replayBucket, event);
+          replayBucket.rightLeg = true;
+          break;
+        }
+
         const bucket = seq ? findBucket(buckets, event.node, "write", seq) : undefined;
 
         if (bucket) {
@@ -293,12 +341,21 @@ function buildBuckets(): Bucket[] {
         break;
       }
 
-      case "receive_gossip":
-        newBucket(buckets, event, "merge");
+      case "receive_gossip": {
+        const replayBucket = event.replay ? findReplayMerge(buckets, event.node, event.from, event.tick, false) : undefined;
+
+        if (replayBucket) {
+          addToBucket(replayBucket, event);
+        } else {
+          newBucket(buckets, event, "merge");
+        }
         break;
+      }
 
       case "send_gossip_ack": {
-        const bucket = findBucket(buckets, event.node, "merge", seq);
+        const bucket = event.replay
+          ? findReplayMerge(buckets, event.node, event.from, event.tick, true)
+          : findBucket(buckets, event.node, "merge", seq);
 
         if (bucket) {
           bucket.end = Math.max(bucket.end, event.tick);
@@ -308,7 +365,11 @@ function buildBuckets(): Bucket[] {
       }
 
       case "merge": {
-        const bucket = findBucket(buckets, event.node, "merge", seq, true) ?? newBucket(buckets, event, "merge");
+        const bucket = event.replay
+          ? (findReplayMerge(buckets, event.node, event.from, event.tick - 1, false) ??
+            findReplayMerge(buckets, event.node, event.from, event.tick, true) ??
+            newBucket(buckets, event, "merge"))
+          : (findBucket(buckets, event.node, "merge", seq, true) ?? newBucket(buckets, event, "merge"));
         bucket.processedAt = event.tick;
         bucket.end = Math.max(bucket.end, event.tick);
         break;
@@ -500,7 +561,8 @@ function renderBucket(bucket: Bucket, lane: Lane, x: (tick: number) => number): 
   const seqText = bucket.seqs.length > 0 ? ` #${bucket.seqs.join("/")}` : "";
   const what =
     bucket.kind === "write" ? "Write" : bucket.kind === "read" ? "Read" : bucket.kind === "merge" ? "Merge" : "Gossip";
-  const detail = `${what}${seqText}, arrives t${bucket.start}${bucket.processedAt !== undefined ? `, processed t${bucket.processedAt}` : ""}${bucket.rightLeg ? `, sends t${bucket.end}` : ""}${sum !== undefined ? `, sum ${sum}` : ""}${gained.length > 0 ? `, adds ${gained.join(", ")}` : ""}`;
+  const replayText = bucket.replay ? "Replay: " : "";
+  const detail = `${replayText}${what}${seqText}, arrives t${bucket.start}${bucket.processedAt !== undefined ? `, processed t${bucket.processedAt}` : ""}${bucket.rightLeg ? `, sends t${bucket.end}` : ""}${sum !== undefined ? `, sum ${sum}` : ""}${gained.length > 0 ? `, adds ${gained.join(", ")}` : ""}`;
 
   return [
     `<g class="tg-bucket">`,

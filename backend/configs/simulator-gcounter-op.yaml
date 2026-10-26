@@ -1,0 +1,15 @@
+mode: simulator
+
+simulator:
+  port: 8080
+  crdt: gcounter-op
+
+  nodes:
+    - id: A
+      state: 0
+
+    - id: B
+      state: 0
+
+    - id: C
+      state: 0

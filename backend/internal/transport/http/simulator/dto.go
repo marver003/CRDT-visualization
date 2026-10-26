@@ -76,4 +76,6 @@ type respStep struct {
 
 	From types.ReplicaId `json:"from,omitempty"`
 	To   types.ReplicaId `json:"to,omitempty"`
+
+	Replay bool `json:"replay,omitempty"`
 }

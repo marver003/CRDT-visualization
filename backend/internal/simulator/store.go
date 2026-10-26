@@ -96,6 +96,57 @@ func (s *Store) GetState() (map[types.ReplicaId]map[types.ReplicaId]uint64, erro
 	return state, nil
 }
 
+func (s *Store) GetOpCounterState() (map[types.ReplicaId]uint64, error) {
+	state := make(map[types.ReplicaId]uint64, len(s.Nodes))
+
+	for id := range s.Nodes {
+		value, err := s.ReadNodeValue(id)
+		if err != nil {
+			return nil, err
+		}
+
+		state[id] = value
+	}
+
+	return state, nil
+}
+
+func (s *Store) GenerateNodeOp(id types.ReplicaId, amount uint64) (crdt.CounterOp, error) {
+	n, exists := s.Nodes[id]
+	if !exists {
+		return crdt.CounterOp{}, fmt.Errorf("node %q does not exist", id)
+	}
+
+	return n.GenerateOp(amount)
+}
+
+func (s *Store) ApplyNodeOp(id types.ReplicaId, op crdt.CounterOp) (bool, error) {
+	n, exists := s.Nodes[id]
+	if !exists {
+		return false, fmt.Errorf("node %q does not exist", id)
+	}
+
+	return n.ApplyOp(op)
+}
+
+func (s *Store) NodeHave(id types.ReplicaId) (map[types.ReplicaId]uint64, error) {
+	n, exists := s.Nodes[id]
+	if !exists {
+		return nil, fmt.Errorf("node %q does not exist", id)
+	}
+
+	return n.Have()
+}
+
+func (s *Store) NodeOpsAfter(id types.ReplicaId, seq uint64) ([]crdt.CounterOp, error) {
+	n, exists := s.Nodes[id]
+	if !exists {
+		return nil, fmt.Errorf("node %q does not exist", id)
+	}
+
+	return n.OpsAfter(seq)
+}
+
 func (s *Store) GetGSetState() (map[types.ReplicaId][]string, error) {
 	state := make(map[types.ReplicaId][]string, len(s.Nodes))
 
@@ -178,6 +229,10 @@ func (s *Store) ReadNodeValue(id types.ReplicaId) (uint64, error) {
 	n, exists := s.Nodes[id]
 	if !exists {
 		return 0, fmt.Errorf("node %q does not exist", id)
+	}
+
+	if opCounter, ok := n.Crdt.(*crdt.GCounterOp); ok {
+		return opCounter.Value(), nil
 	}
 
 	gcounter, ok := n.Crdt.(*crdt.GCounter)

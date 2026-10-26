@@ -108,7 +108,7 @@ async function sendClientRequest(
   }
 
   const isWrite = api === writeWithElement;
-  const amount = currentCrdt === "gcounter" && isWrite ? readAmount(view) : undefined;
+  const amount = usesAmount() && isWrite ? readAmount(view) : undefined;
   const sent = await api(view.id, view.select.value, currentCrdt === "gset" ? element : undefined, amount);
 
   if (!sent) {
@@ -165,7 +165,7 @@ function updateClientResults(clients: ClientSnapshot[]) {
 function refreshClientControls() {
   for (const clientView of clientViews) {
     clientView.element.hidden = currentCrdt !== "gset";
-    clientView.amount.hidden = currentCrdt !== "gcounter";
+    clientView.amount.hidden = !usesAmount();
 
     const blocked = !clientsHaveNodes || isAdvancing || clientLocked.get(clientView.id) === true;
 
@@ -215,4 +215,8 @@ if (clientsContainer) {
     clientsContainer.appendChild(createClient(id));
   }
   updateClientNodeOptions([]);
+}
+
+function usesAmount() {
+  return currentCrdt === "gcounter" || currentCrdt === "gcounter-op";
 }

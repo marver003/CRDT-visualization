@@ -10,7 +10,7 @@ import (
 const maxGCounterAmount uint64 = 1000
 
 func gcounterAmount(crdtType types.CrdtType, kind simulator.RequestKind, amount uint64) (uint64, error) {
-	if crdtType != types.GCounterType || kind != simulator.WriteRequest {
+	if (crdtType != types.GCounterType && crdtType != types.GCounterOpType) || kind != simulator.WriteRequest {
 		return 0, nil
 	}
 

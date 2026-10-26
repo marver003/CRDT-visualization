@@ -15,7 +15,7 @@ const createNodePopup = document.getElementById("create-node-popup") as HTMLElem
 const replicaIdField = document.getElementById("replica-id") as HTMLInputElement;
 const nodesContainer = document.getElementById("nodes-container") as HTMLElement;
 
-type CrdtKind = "gcounter" | "gset";
+type CrdtKind = "gcounter" | "gset" | "gcounter-op";
 
 let currentCrdt: CrdtKind = "gcounter";
 let activeNetwork: Network | null = null;

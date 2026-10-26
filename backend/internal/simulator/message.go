@@ -15,6 +15,7 @@ const (
 	ReadRequestMessage  MessageKind = "read_request"
 	ReadResponseMessage MessageKind = "read_response"
 	GossipAckMessage    MessageKind = "gossip_ack"
+	SyncRequestMessage  MessageKind = "sync_request"
 )
 
 type EndpointKind string
@@ -46,6 +47,9 @@ type Message struct {
 	ClientId  types.ClientId
 	Seq       uint64
 	State     crdt.Snapshot
+	Op        *crdt.CounterOp
+	Have      map[types.ReplicaId]uint64
+	Replay    bool
 	Value     uint64
 	Element   string
 	Amount    uint64

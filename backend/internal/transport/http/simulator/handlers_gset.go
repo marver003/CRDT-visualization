@@ -13,6 +13,10 @@ func stateFor(store *simulator.Store) (any, error) {
 		return store.GetGSetState()
 	}
 
+	if store.CrdtType == types.GCounterOpType {
+		return store.GetOpCounterState()
+	}
+
 	return store.GetState()
 }
 
