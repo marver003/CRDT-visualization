@@ -3,6 +3,8 @@ package simhttp
 import (
 	"log"
 	"net/http"
+
+	"github.com/marver003/crdt/internal/web"
 )
 
 // corsMiddleware adds permissive CORS headers so a browser-based frontend
@@ -35,6 +37,7 @@ func registerRoutes(mux *http.ServeMux, h *Handler) {
 	mux.HandleFunc("POST /step", h.locked(h.NextStep))             // no body
 	mux.HandleFunc("POST /simulator", h.locked(h.SwitchSimulator)) // body should contain crdt
 	mux.HandleFunc("POST /reset", h.locked(h.Reset))               // no body
+	mux.Handle("GET /", http.FileServerFS(web.UI()))
 
 }
 

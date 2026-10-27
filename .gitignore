@@ -44,3 +44,7 @@ go.work
 
 node_modules/
 dist/
+
+### Embedded frontend copy (made by build.sh) ###
+backend/internal/web/ui/*
+!backend/internal/web/ui/.gitkeep

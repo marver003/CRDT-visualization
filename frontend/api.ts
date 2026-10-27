@@ -1,4 +1,6 @@
-const API_BASE = "http://localhost:8080";
+const API_BASE =
+  new URLSearchParams(location.search).get("api") ??
+  (location.protocol === "file:" ? "http://localhost:8080" : "");
 
 async function requestAPI(path: string, options?: RequestInit) {
   try {

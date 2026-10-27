@@ -4,12 +4,14 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 
 	"github.com/marver003/crdt/internal/config"
 	"github.com/marver003/crdt/internal/simulator"
 	simhttp "github.com/marver003/crdt/internal/transport/http/simulator"
 	"github.com/marver003/crdt/internal/types"
+	"github.com/marver003/crdt/internal/web"
 )
 
 func loadConfig(path string) (*config.Simulator, error) {
@@ -57,7 +59,21 @@ func main() {
 
 	log.Printf("Simulator (%s, %d nodes) API listening on %d", cfg.Simulator.Crdt, len(snapshots), cfg.Simulator.Port)
 
-	if err := http.ListenAndServe(fmt.Sprintf(":%d", cfg.Simulator.Port), router); err != nil {
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", cfg.Simulator.Port))
+	if err != nil {
+		log.Fatalf("listen: %v", err)
+	}
+
+	if web.HasUI() {
+		url := fmt.Sprintf("http://localhost:%d", cfg.Simulator.Port)
+		log.Printf("Open %s in your browser", url)
+
+		if err := web.OpenBrowser(url); err != nil {
+			log.Printf("could not open the browser: %v", err)
+		}
+	}
+
+	if err := http.Serve(listener, router); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }
