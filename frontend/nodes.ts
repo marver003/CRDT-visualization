@@ -279,10 +279,28 @@ let panPointerId: number | null = null;
 let panStart: Point = { x: 0, y: 0 };
 let panViewStart: Point = { x: 0, y: 0 };
 
+const viewLockButton = document.getElementById("view-lock-toggle") as HTMLButtonElement;
+const viewLockShackle = document.getElementById("view-lock-shackle") as unknown as SVGPathElement;
+let viewLocked = false;
+
+viewLockButton.addEventListener("click", () => {
+  viewLocked = !viewLocked;
+
+  if (viewLocked) {
+    cancelPanning();
+  }
+
+  nodesContainer.classList.toggle("locked", viewLocked);
+  viewLockButton.setAttribute("aria-pressed", String(viewLocked));
+  viewLockButton.setAttribute("aria-label", viewLocked ? "Unlock view" : "Lock view");
+  viewLockButton.title = viewLocked ? "Unlock view (enable pan and zoom)" : "Lock view (disable pan and zoom)";
+  viewLockShackle.setAttribute("d", viewLocked ? "M8 11V7a4 4 0 0 1 8 0v4" : "M8 11V7a4 4 0 0 1 7.5-2");
+});
+
 nodesContainer.addEventListener(
   "wheel",
   (e) => {
-    if (!activeNetwork || !view) return;
+    if (viewLocked || !activeNetwork || !view) return;
     e.preventDefault();
 
     const rect = nodesContainer.getBoundingClientRect();
@@ -306,7 +324,7 @@ nodesContainer.addEventListener(
 );
 
 nodesContainer.addEventListener("pointerdown", (e) => {
-  if (!activeNetwork || !view || e.button !== 0) return;
+  if (viewLocked || !activeNetwork || !view || e.button !== 0) return;
   // Let clicks on real controls (buttons, selects...) through untouched.
   if ((e.target as HTMLElement).closest("button, select, input, a")) return;
 
@@ -316,6 +334,8 @@ nodesContainer.addEventListener("pointerdown", (e) => {
   panViewStart = { x: view.x, y: view.y };
   nodesContainer.setPointerCapture(e.pointerId);
   nodesContainer.classList.add("panning");
+  document.body.classList.add("is-panning");
+  window.getSelection()?.removeAllRanges();
 });
 
 nodesContainer.addEventListener("pointermove", (e) => {
@@ -330,13 +350,23 @@ nodesContainer.addEventListener("pointermove", (e) => {
   redrawPacketsAfterViewChange();
 });
 
-function stopPanning(e: PointerEvent) {
-  if (!isPanning || e.pointerId !== panPointerId) return;
+function cancelPanning() {
+  if (!isPanning) return;
+
+  if (panPointerId !== null && nodesContainer.hasPointerCapture(panPointerId)) {
+    nodesContainer.releasePointerCapture(panPointerId);
+  }
 
   isPanning = false;
   panPointerId = null;
-  nodesContainer.releasePointerCapture(e.pointerId);
   nodesContainer.classList.remove("panning");
+  document.body.classList.remove("is-panning");
+}
+
+function stopPanning(e: PointerEvent) {
+  if (!isPanning || e.pointerId !== panPointerId) return;
+
+  cancelPanning();
 }
 
 nodesContainer.addEventListener("pointerup", stopPanning);

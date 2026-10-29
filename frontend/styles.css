@@ -331,6 +331,46 @@ body.is-animating .simulator-select {
   cursor: grabbing;
 }
 
+.nodes-content.locked {
+  cursor: default;
+}
+
+body.is-panning {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.view-lock-toggle {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #34445b;
+  border-radius: 5px;
+  background: var(--panel);
+  color: var(--text);
+}
+
+.view-lock-toggle svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.view-lock-toggle[aria-pressed="true"] {
+  border-color: var(--purple);
+  background: var(--purple);
+  color: white;
+}
+
 .node-network {
   position: absolute;
   top: 0;
