@@ -37,6 +37,7 @@ func registerRoutes(mux *http.ServeMux, h *Handler) {
 	mux.HandleFunc("POST /step", h.locked(h.NextStep))             // no body
 	mux.HandleFunc("POST /simulator", h.locked(h.SwitchSimulator)) // body should contain crdt
 	mux.HandleFunc("POST /reset", h.locked(h.Reset))               // no body
+	mux.HandleFunc("POST /config", h.locked(h.LoadConfig))         // body is the raw YAML of a simulator config
 	mux.Handle("GET /", http.FileServerFS(web.UI()))
 
 }

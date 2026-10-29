@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -17,11 +18,14 @@ import (
 // NewSimFunc builds a fresh simulator of the given CRDT type
 type NewSimFunc func(crdtType types.CrdtType) (*simulator.Simulator, error)
 
+type LoadConfigFunc func(data []byte) (*simulator.Simulator, error)
+
 // Handler holds shared dependencies for all HTTP handlers.
 type Handler struct {
-	mu     sync.Mutex
-	Sim    *simulator.Simulator
-	newSim NewSimFunc
+	mu         sync.Mutex
+	Sim        *simulator.Simulator
+	newSim     NewSimFunc
+	loadConfig LoadConfigFunc
 }
 
 func (h *Handler) locked(next http.HandlerFunc) http.HandlerFunc {
@@ -33,8 +37,8 @@ func (h *Handler) locked(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func NewHandler(s *simulator.Simulator, newSim NewSimFunc) *Handler {
-	return &Handler{Sim: s, newSim: newSim}
+func NewHandler(s *simulator.Simulator, newSim NewSimFunc, loadConfig LoadConfigFunc) *Handler {
+	return &Handler{Sim: s, newSim: newSim, loadConfig: loadConfig}
 }
 
 func (h *Handler) CreateNode(w http.ResponseWriter, r *http.Request) {
@@ -378,6 +382,31 @@ func (h *Handler) Reset(w http.ResponseWriter, r *http.Request) {
 	sim, err := h.newSim(h.Sim.Store.CrdtType)
 	if err != nil {
 		helper.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	h.Sim = sim
+
+	helper.WriteOkNoContent(w)
+}
+
+const maxConfigBytes = 1 << 20
+
+func (h *Handler) LoadConfig(w http.ResponseWriter, r *http.Request) {
+	if h.loadConfig == nil {
+		helper.WriteError(w, http.StatusNotImplemented, "Loading a configuration is not supported")
+		return
+	}
+
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxConfigBytes))
+	if err != nil {
+		helper.WriteError(w, http.StatusBadRequest, "Could not read the configuration (larger than 1 MB?)")
+		return
+	}
+
+	sim, err := h.loadConfig(data)
+	if err != nil {
+		helper.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 

@@ -51,6 +51,20 @@ func LoadSimulator(path string) (*Simulator, error) {
 	return &cfg, nil
 }
 
+func ParseSimulator(data []byte) (*Simulator, error) {
+	var cfg Simulator
+
+	if err := decode(data, &cfg); err != nil {
+		return nil, fmt.Errorf("invalid YAML: %w", err)
+	}
+
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
 func (c *Simulator) Snapshots() (map[types.ReplicaId]crdt.Snapshot, error) {
 	snapshots := make(map[types.ReplicaId]crdt.Snapshot, len(c.Simulator.Nodes))
 
@@ -125,6 +139,12 @@ func (c *Simulator) validate() error {
 
 	if c.Simulator.Crdt == "" {
 		return errors.New("simulator.crdt is not set")
+	}
+
+	switch c.Simulator.Crdt {
+	case types.GCounterType, types.GSetType, types.GCounterOpType:
+	default:
+		return fmt.Errorf("simulator.crdt: unsupported crdt type %q", c.Simulator.Crdt)
 	}
 
 	seen := make(map[types.ReplicaId]bool, len(c.Simulator.Nodes))

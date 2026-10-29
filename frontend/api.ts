@@ -131,3 +131,28 @@ async function resetAPI() {
     method: "POST",
   });
 }
+
+async function loadConfigAPI(yaml: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${API_BASE}/config`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/yaml",
+      },
+      body: yaml,
+    });
+
+    if (response.ok) {
+      return null;
+    }
+
+    try {
+      const body = (await response.json()) as { error?: string };
+      return body.error ?? `The backend returned HTTP ${response.status}`;
+    } catch {
+      return `The backend returned HTTP ${response.status}`;
+    }
+  } catch {
+    return "The frontend could not connect to the backend. Start the backend service and try again.";
+  }
+}

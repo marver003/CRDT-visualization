@@ -406,6 +406,7 @@ body.is-panning {
 
 body.is-animating .node-card-power,
 body.is-animating #reset-button,
+body.is-animating #load-config-button,
 body.is-animating .create-node-toggle,
 body.is-animating .create-node-button {
   opacity: 0.5;

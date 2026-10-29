@@ -14,14 +14,18 @@ func load(path string, out any) error {
 		return err
 	}
 
-	decoder := yaml.NewDecoder(bytes.NewReader(data))
-	decoder.KnownFields(true)
-
-	if err := decoder.Decode(out); err != nil {
+	if err := decode(data, out); err != nil {
 		return fmt.Errorf("parse %s: %w", path, err)
 	}
 
 	return nil
+}
+
+func decode(data []byte, out any) error {
+	decoder := yaml.NewDecoder(bytes.NewReader(data))
+	decoder.KnownFields(true)
+
+	return decoder.Decode(out)
 }
 
 func validatePort(name string, port int) error {

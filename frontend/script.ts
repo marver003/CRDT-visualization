@@ -42,3 +42,36 @@ simulatorSelect.addEventListener("change", async () => {
   resetTimeGraph();
   await renderState();
 });
+
+const loadConfigButton = document.getElementById(
+  "load-config-button",
+) as HTMLButtonElement;
+const loadConfigInput = document.getElementById(
+  "load-config-input",
+) as HTMLInputElement;
+
+loadConfigButton.addEventListener("click", () => {
+  if (!isAdvancing) {
+    loadConfigInput.click();
+  }
+});
+
+loadConfigInput.addEventListener("change", async () => {
+  const file = loadConfigInput.files?.[0];
+  loadConfigInput.value = "";
+
+  if (!file || isAdvancing) {
+    return;
+  }
+
+  const error = await loadConfigAPI(await file.text());
+
+  if (error) {
+    showCriticalError(`Could not load ${file.name}`, error);
+    return;
+  }
+
+  resetNetworkView();
+  resetTimeGraph();
+  await renderState();
+});
