@@ -3,6 +3,7 @@ mode: live
 node_defaults:
   crdt: gcounter
   host: localhost
+  gossip_interval: 5s
 
 nodes:
   A:

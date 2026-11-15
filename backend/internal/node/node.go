@@ -18,7 +18,7 @@ type Node struct {
 }
 
 // Create initializes and returns a node
-func Create(id types.ReplicaId, crdtType types.CrdtType, peers []types.Peer) (*Node, error) {
+func Create(id types.ReplicaId, crdtType types.CrdtType, peers []types.Peer, gossipInterval time.Duration) (*Node, error) {
 	log.Println("Creating new node")
 	crdtInstance, err := crdt.NewCrdt(id, crdtType)
 	if err != nil {
@@ -29,7 +29,7 @@ func Create(id types.ReplicaId, crdtType types.CrdtType, peers []types.Peer) (*N
 		Id:            id,
 		Crdt:          crdtInstance,
 		Peers:         peers,
-		GossipService: grpc.GossipClient(id, peers, crdtInstance, 5*time.Second),
+		GossipService: grpc.GossipClient(id, peers, crdtInstance, gossipInterval),
 	}, nil
 }
 

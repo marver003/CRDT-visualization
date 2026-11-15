@@ -113,7 +113,7 @@ func (g *GCounter) Marshal() ([]byte, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	return json.Marshal(g.GetSnapshotCounts())
+	return json.Marshal(&GCounterSnapshot{Counts: g.counts})
 }
 
 func (g *GCounter) Unmarshal(data []byte) (Snapshot, error) {

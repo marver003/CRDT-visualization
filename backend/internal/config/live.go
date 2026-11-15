@@ -7,9 +7,12 @@ import (
 	"net"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/marver003/crdt/internal/types"
 )
+
+const DefaultGossipInterval = 5 * time.Second
 
 type Live struct {
 	Mode         string                       `yaml:"mode"`
@@ -22,6 +25,8 @@ type LiveNode struct {
 	Host     string         `yaml:"host"`
 	HTTPPort int            `yaml:"http_port"`
 	GRPCPort int            `yaml:"grpc_port"`
+
+	GossipInterval time.Duration `yaml:"gossip_interval"`
 }
 
 func LoadLive(path string) (*Live, error) {
@@ -50,6 +55,14 @@ func (c *Live) Node(id types.ReplicaId) (LiveNode, bool) {
 
 	if node.Host == "" {
 		node.Host = c.NodeDefaults.Host
+	}
+
+	if node.GossipInterval == 0 {
+		node.GossipInterval = c.NodeDefaults.GossipInterval
+	}
+
+	if node.GossipInterval == 0 {
+		node.GossipInterval = DefaultGossipInterval
 	}
 
 	return node, true
@@ -92,6 +105,10 @@ func (c *Live) validate() error {
 
 		if node.Host == "" {
 			return fmt.Errorf("node %q: host is not set", id)
+		}
+
+		if node.GossipInterval < 0 {
+			return fmt.Errorf("node %q: gossip_interval must be positive", id)
 		}
 
 		if err := validatePort(fmt.Sprintf("node %q: http_port", id), node.HTTPPort); err != nil {

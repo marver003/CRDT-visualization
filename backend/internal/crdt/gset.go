@@ -86,7 +86,7 @@ func (g *GSet) Marshal() ([]byte, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
-	return json.Marshal(g.GetSnapshot())
+	return json.Marshal(&GSetSnapshot{Set: g.set})
 }
 
 func (g *GSet) Unmarshal(data []byte) (Snapshot, error) {

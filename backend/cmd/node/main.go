@@ -37,7 +37,7 @@ func main() {
 		log.Fatalf("config: node %q is not defined in %s", id, *configPath)
 	}
 
-	n, err := node.Create(id, nodeCfg.Crdt, cfg.Peers(id))
+	n, err := node.Create(id, nodeCfg.Crdt, cfg.Peers(id), nodeCfg.GossipInterval)
 	if err != nil {
 		log.Fatalf("node creation failed: %v", err)
 	}
@@ -45,7 +45,7 @@ func main() {
 	handler := nodehttp.NewHandler(n)
 	router := nodehttp.NewRouter(handler)
 
-	log.Printf("Node %s (%s) API listening on %d, gRPC on %d", id, nodeCfg.Crdt, nodeCfg.HTTPPort, nodeCfg.GRPCPort)
+	log.Printf("Node %s (%s) API listening on %d, gRPC on %d, gossip every %s", id, nodeCfg.Crdt, nodeCfg.HTTPPort, nodeCfg.GRPCPort, nodeCfg.GossipInterval)
 
 	go grpc.GossipServer(fmt.Sprintf(":%d", nodeCfg.GRPCPort), n.Crdt)
 	go n.GossipService.Gossip()
