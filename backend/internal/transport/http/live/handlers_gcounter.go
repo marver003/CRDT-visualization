@@ -54,7 +54,7 @@ func (h *Handler) AddAmountCounter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writeCounterInfo(w)
+	helper.WriteOkNoContent(w)
 }
 
 func (h *Handler) writeCounterInfo(w http.ResponseWriter) {

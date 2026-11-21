@@ -44,7 +44,7 @@ func (h *Handler) AddElement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.writeSetInfo(w)
+	helper.WriteOkNoContent(w)
 }
 
 func (h *Handler) writeSetInfo(w http.ResponseWriter) {
