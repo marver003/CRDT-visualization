@@ -26,7 +26,7 @@ type PushStateRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Identifies the CRDT instance on the receiving node
 	CrdtId string `protobuf:"bytes,1,opt,name=crdt_id,json=crdtId,proto3" json:"crdt_id,omitempty"`
-	// CRDT type ("gcounter", "gset", "lwwset", ...)
+	// CRDT type ("gcounter", "gset")
 	CrdtType string `protobuf:"bytes,2,opt,name=crdt_type,json=crdtType,proto3" json:"crdt_type,omitempty"`
 	// Serialized CRDT state
 	State         []byte `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`

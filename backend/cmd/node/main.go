@@ -43,7 +43,10 @@ func main() {
 	}
 
 	handler := nodehttp.NewHandler(n)
-	router := nodehttp.NewRouter(handler)
+	router, err := nodehttp.NewRouter(handler)
+	if err != nil {
+		log.Fatalf("router: %v", err)
+	}
 
 	log.Printf("Node %s (%s) API listening on %d, gRPC on %d, gossip every %s", id, nodeCfg.Crdt, nodeCfg.HTTPPort, nodeCfg.GRPCPort, nodeCfg.GossipInterval)
 

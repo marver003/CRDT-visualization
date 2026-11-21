@@ -1,8 +1,11 @@
 package live
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+
+	"github.com/marver003/crdt/internal/types"
 )
 
 // corsMiddleware adds permissive CORS headers so a browser-based frontend
@@ -22,18 +25,29 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func registerRoutes(mux *http.ServeMux, h *Handler) {
+func registerRoutes(mux *http.ServeMux, h *Handler) error {
+	switch crdtType := h.Node.Crdt.Type(); crdtType {
+	case types.GCounterType:
+		mux.HandleFunc("GET /replicaState", h.GetCounterState)
+		mux.HandleFunc("POST /increment", h.IncrementCounter)
+	case types.GSetType:
+		mux.HandleFunc("GET /replicaState", h.GetSetState)
+		mux.HandleFunc("POST /add", h.AddElement)
+	default:
+		return fmt.Errorf("crdt type %q is not supported by the live node (supported: %s, %s)", crdtType, types.GCounterType, types.GSetType)
+	}
 
-	mux.HandleFunc("GET /replicaState", h.GetReplicaState)
-	mux.HandleFunc("POST /increment", h.IncrementReplica)
+	return nil
 }
 
-// NewRouter builds and returns the HTTP mux for the GCounter API.
-func NewRouter(h *Handler) http.Handler {
+// NewRouter builds the HTTP mux for the node's CRDT type, or fails if the live node does not support that type.
+func NewRouter(h *Handler) (http.Handler, error) {
 	log.Println("Creating new router")
 	mux := http.NewServeMux()
 
-	registerRoutes(mux, h)
+	if err := registerRoutes(mux, h); err != nil {
+		return nil, err
+	}
 
-	return loggingMiddleware(corsMiddleware(mux))
+	return loggingMiddleware(corsMiddleware(mux)), nil
 }
