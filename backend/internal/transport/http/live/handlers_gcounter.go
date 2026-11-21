@@ -1,6 +1,10 @@
 package live
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/marver003/crdt/internal/crdt"
@@ -14,14 +18,38 @@ type counterInfo struct {
 	Counts map[types.ReplicaId]uint64 `json:"counts"`
 }
 
+const maxCounterAddAmount uint64 = 1000
+
+type addAmountRequest struct {
+	Amount *uint64 `json:"amount"`
+}
+
 // GetCounterState handles GET /replicaState
 func (h *Handler) GetCounterState(w http.ResponseWriter, r *http.Request) {
 	h.writeCounterInfo(w)
 }
 
-// IncrementCounter handles POST /increment
-func (h *Handler) IncrementCounter(w http.ResponseWriter, r *http.Request) {
-	if err := h.Node.Increment(); err != nil {
+// AddAmountCounter handles POST /add for a gcounter node
+func (h *Handler) AddAmountCounter(w http.ResponseWriter, r *http.Request) {
+	var request addAmountRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil && !errors.Is(err, io.EOF) {
+		helper.WriteError(w, http.StatusBadRequest, "invalid JSON body, amount must be a positive whole number")
+		return
+	}
+
+	amount := uint64(1)
+
+	if request.Amount != nil {
+		amount = *request.Amount
+	}
+
+	if amount == 0 || amount > maxCounterAddAmount {
+		helper.WriteError(w, http.StatusBadRequest, fmt.Sprintf("amount must be between 1 and %d", maxCounterAddAmount))
+		return
+	}
+
+	if err := h.Node.IncrementBy(amount); err != nil {
 		helper.WriteError(w, http.StatusBadRequest, err.Error())
 		return
 	}

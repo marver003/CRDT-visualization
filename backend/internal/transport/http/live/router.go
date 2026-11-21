@@ -29,7 +29,7 @@ func registerRoutes(mux *http.ServeMux, h *Handler) error {
 	switch crdtType := h.Node.Crdt.Type(); crdtType {
 	case types.GCounterType:
 		mux.HandleFunc("GET /replicaState", h.GetCounterState)
-		mux.HandleFunc("POST /increment", h.IncrementCounter)
+		mux.HandleFunc("POST /add", h.AddAmountCounter)
 	case types.GSetType:
 		mux.HandleFunc("GET /replicaState", h.GetSetState)
 		mux.HandleFunc("POST /add", h.AddElement)
