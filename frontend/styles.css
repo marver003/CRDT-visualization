@@ -175,6 +175,11 @@ body.is-animating .simulator-select {
   font-size: 13px;
 }
 
+.btn.step-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .step-play-button--playing {
   border-color: var(--blue);
   color: var(--blue);

@@ -123,7 +123,6 @@ func (op ReceiveSyncRequestOperation) Execute(sim *Simulator) error {
 	}
 
 	for _, missing := range ops {
-		missing := missing
 		send := SendGossipMessageOperation{
 			BaseOperation: sim.After(sendDelay),
 			From:          responder,

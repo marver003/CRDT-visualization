@@ -3,8 +3,6 @@ type StepMode = "manual" | "auto";
 const stepModeButtons = Array.from(
   document.querySelectorAll<HTMLButtonElement>(".step-mode-btn"),
 );
-const manualControls = document.getElementById("step-manual-controls") as HTMLElement;
-const autoControls = document.getElementById("step-auto-controls") as HTMLElement;
 const nextStepButton = document.getElementById("next-step-button") as HTMLButtonElement;
 const playPauseButton = document.getElementById("play-pause-button") as HTMLButtonElement;
 const playPauseIcon = document.getElementById("play-pause-icon") as HTMLElement;
@@ -23,8 +21,8 @@ function applyModeUI() {
     button.classList.toggle("step-mode-btn--active", isActive);
   }
 
-  manualControls.hidden = mode !== "manual";
-  autoControls.hidden = mode !== "auto";
+  nextStepButton.disabled = mode !== "manual";
+  playPauseButton.disabled = mode !== "auto";
 }
 
 function setMode(nextMode: StepMode) {
@@ -90,7 +88,7 @@ async function handleNextStepClick() {
   try {
     await advanceOneStep();
   } finally {
-    nextStepButton.disabled = false;
+    nextStepButton.disabled = mode !== "manual";
   }
 }
 
