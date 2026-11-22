@@ -34,7 +34,7 @@ Opombe:
 
 ## Razvoj
 
-Potrebujete Go in Node.js.
+Potrebujete Go. Node.js je potreben samo za prevajanje vmesnika (glejte spodaj).
 
 ### Zagon strežnika
 
@@ -54,6 +54,8 @@ cd frontend
 npm install
 node node_modules/typescript/lib/tsc.js -p tsconfig.json
 ```
+
+Node.js za prevajanje ni potreben, če z GitHub Releases prenesete `frontend_dist.zip` in ga razpakirate v mapo `frontend/` (nastane `frontend/dist/` z že prevedenimi datotekami).
 
 Nato odprite `frontend/index.html` neposredno v brskalniku. Brez dodatnih nastavitev se poveže na `http://localhost:8080`. Za drugačen naslov strežnika dodajte parameter:
 
