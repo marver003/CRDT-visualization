@@ -233,7 +233,7 @@ func (h *Handler) GetSteps(w http.ResponseWriter, r *http.Request) {
 					Seq:       op.Message.Seq,
 				})
 
-			case simulator.IncrementOperation:
+			case simulator.WriteOperation:
 				steps = append(steps, respStep{
 					StepId:    op.StepId,
 					Type:      writeStepType(h.Sim.Store.CrdtType),

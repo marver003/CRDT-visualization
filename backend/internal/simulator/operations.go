@@ -31,7 +31,7 @@ type ReceiveRequestOperation struct {
 	Message *Message
 }
 
-type IncrementOperation struct {
+type WriteOperation struct {
 	BaseOperation
 	ReplicaId types.ReplicaId
 	ClientId  types.ClientId
@@ -172,7 +172,7 @@ func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
 		return nil
 	}
 
-	sim.Queue.Enqueue(IncrementOperation{
+	sim.Queue.Enqueue(WriteOperation{
 		BaseOperation: after,
 		ReplicaId:     replicaId,
 		ClientId:      clientId,
@@ -185,7 +185,7 @@ func (op ReceiveRequestOperation) Execute(sim *Simulator) error {
 	return nil
 }
 
-func (op IncrementOperation) Execute(sim *Simulator) error {
+func (op WriteOperation) Execute(sim *Simulator) error {
 	if !sim.Store.IsUp(op.ReplicaId) {
 		return nil
 	}
