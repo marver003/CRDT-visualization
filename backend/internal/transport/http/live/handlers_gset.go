@@ -44,6 +44,8 @@ func (h *Handler) AddElement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.Node.GossipService.Notify()
+
 	helper.WriteOkNoContent(w)
 }
 

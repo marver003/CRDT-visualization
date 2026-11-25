@@ -12,11 +12,14 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+const timeout = 10 * time.Second
+
 type GossipService struct {
 	id       types.ReplicaId
 	peers    []types.Peer
 	crdt     crdt.CRDT
 	interval time.Duration
+	changed  chan struct{}
 }
 
 func GossipClient(id types.ReplicaId, peers []types.Peer, crdtInstance crdt.CRDT, interval time.Duration) *GossipService {
@@ -25,45 +28,75 @@ func GossipClient(id types.ReplicaId, peers []types.Peer, crdtInstance crdt.CRDT
 		peers:    peers,
 		crdt:     crdtInstance,
 		interval: interval,
+		changed:  make(chan struct{}, 1),
+	}
+}
+
+func (g *GossipService) Notify() {
+	select {
+	case g.changed <- struct{}{}:
+	default:
 	}
 }
 
 func (g *GossipService) Gossip() {
 	log.Println("Gossip service started.")
-	var connections []*grpc.ClientConn
-	var grpcClients []replication.ReplicationServiceClient
+
+	var triggers []chan struct{}
+
 	for _, peer := range g.peers {
-
 		conn, err := grpc.NewClient(peer.GRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-
 		if err != nil {
-			log.Printf("Connection to gRPC server failed: %v\n", err.Error())
+			log.Printf("Connection to gRPC server %s failed: %v\n", peer.GRPCAddr, err)
+			continue
 		}
 
-		connections = append(connections, conn)
-		grpcClients = append(grpcClients, replication.NewReplicationServiceClient(conn))
+		trigger := make(chan struct{}, 1)
+		triggers = append(triggers, trigger)
 
+		go g.pushLoop(peer.GRPCAddr, replication.NewReplicationServiceClient(conn), trigger)
 	}
 
-	contextRepl, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ticker := time.NewTicker(g.interval)
 
 	for {
-		time.Sleep(g.interval)
-		for index, client := range grpcClients {
-			log.Printf("Gossip to %s\n", g.peers[index].GRPCAddr)
-			stateBytes, err := g.crdt.Marshal()
-			if err != nil {
-				log.Fatalf("Counter Marshal failed: %v", err.Error())
+		select {
+		case <-g.changed:
+		case <-ticker.C:
+		}
+
+		for _, trigger := range triggers {
+			select {
+			case trigger <- struct{}{}:
+			default:
 			}
-			request := replication.PushStateRequest{
-				CrdtId:   string(g.id),
-				CrdtType: string(g.crdt.Type()),
-				State:    stateBytes,
-			}
-			if _, err := client.PushState(contextRepl, &request); err != nil {
-				log.Printf("PushState failed: %v\n", err.Error())
-			}
+		}
+	}
+}
+
+func (g *GossipService) pushLoop(addr string, client replication.ReplicationServiceClient, trigger <-chan struct{}) {
+	for {
+		<-trigger
+
+		log.Printf("Gossip to %s\n", addr)
+
+		stateBytes, err := g.crdt.Marshal()
+		if err != nil {
+			log.Fatalf("Marshal failed: %v", err.Error())
+		}
+
+		request := replication.PushStateRequest{
+			CrdtId:   string(g.id),
+			CrdtType: string(g.crdt.Type()),
+			State:    stateBytes,
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		_, err = client.PushState(ctx, &request)
+		cancel()
+
+		if err != nil {
+			log.Printf("PushState to %s failed: %v\n", addr, err.Error())
 		}
 	}
 }

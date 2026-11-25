@@ -54,6 +54,8 @@ func (h *Handler) AddAmountCounter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.Node.GossipService.Notify()
+
 	helper.WriteOkNoContent(w)
 }
 
