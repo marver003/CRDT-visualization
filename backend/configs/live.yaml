@@ -2,26 +2,30 @@ mode: live
 
 node_defaults:
   crdt: gcounter
-  host: localhost
   gossip_interval: 5s
 
 nodes:
   A:
+    host: localhost
     http_port: 8001
     grpc_port: 9001
 
   B:
+    host: localhost
     http_port: 8002
     grpc_port: 9002
 
   C:
+    host: localhost
     http_port: 8003
     grpc_port: 9003
 
   D:
+    host: localhost
     http_port: 8004
     grpc_port: 9004
 
   E:
+    host: localhost
     http_port: 8005
     grpc_port: 9005

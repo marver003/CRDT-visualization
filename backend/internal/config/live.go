@@ -16,8 +16,13 @@ const DefaultGossipInterval = 5 * time.Second
 
 type Live struct {
 	Mode         string                       `yaml:"mode"`
-	NodeDefaults LiveNode                     `yaml:"node_defaults"`
+	NodeDefaults LiveNodeDefaults             `yaml:"node_defaults"`
 	Nodes        map[types.ReplicaId]LiveNode `yaml:"nodes"`
+}
+
+type LiveNodeDefaults struct {
+	Crdt           types.CrdtType `yaml:"crdt"`
+	GossipInterval time.Duration  `yaml:"gossip_interval"`
 }
 
 type LiveNode struct {
@@ -51,10 +56,6 @@ func (c *Live) Node(id types.ReplicaId) (LiveNode, bool) {
 
 	if node.Crdt == "" {
 		node.Crdt = c.NodeDefaults.Crdt
-	}
-
-	if node.Host == "" {
-		node.Host = c.NodeDefaults.Host
 	}
 
 	if node.GossipInterval == 0 {
